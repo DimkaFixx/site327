@@ -12,8 +12,6 @@ services:
     volumes:
       - backend-data:/app/data
       - ./backend/.creditials.json:/app/.creditials.json:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     networks:
       - app-net

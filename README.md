@@ -170,7 +170,7 @@ DOMAIN=portal.example.com
 В `backend/.env` укажи строку подключения к уже существующему PostgreSQL и свой домен:
 
 ```env
-DATABASE_URL=postgresql+psycopg://USER:PASSWORD@host.docker.internal:5432/DATABASE_NAME
+DATABASE_URL=postgresql+psycopg://postgres:POSTGRES_PASSWORD@172.30.0.1:5432/site327_db
 CORS_ORIGINS=https://portal.example.com
 COOKIE_SECURE=true
 COOKIE_SAMESITE=lax
@@ -178,7 +178,19 @@ TRUSTED_PROXY_IPS=172.30.0.0/24
 TOKEN_SECRET=long-random-secret
 ```
 
-Если PostgreSQL работает на том же сервере, но не в Docker, используй `host.docker.internal` как в примере: production Compose уже связывает это имя с хост-сервером. Если база находится на другом сервере, используй её DNS-имя или IP и разреши подключение с IP приложения в настройках PostgreSQL/firewall.
+В примере используется существующий PostgreSQL-пользователь `postgres` и база `site327_db`; замени только `POSTGRES_PASSWORD` на его пароль. `172.30.0.1` — gateway хоста в сети приложения `172.30.0.0/24`, а backend получает адрес `172.30.0.2`. Чтобы PostgreSQL оставался закрытым от интернета, в `postgresql.conf` укажи только локальный адрес и этот Docker gateway:
+
+```conf
+listen_addresses = 'localhost,172.30.0.1'
+```
+
+В `pg_hba.conf` разреши только backend-сеть:
+
+```conf
+host    site327_db    postgres    172.30.0.0/24    scram-sha-256
+```
+
+Если PostgreSQL находится на другом сервере, используй его DNS-имя или IP вместо `172.30.0.1` и разреши подключение с IP приложения в настройках PostgreSQL/firewall.
 
 Также заполни Google Sheets, администратора, Discord и остальные обязательные настройки из `.env.example`. Помести service account JSON в `backend/.creditials.json` — именно этот путь монтируется в production-контейнер.
 
