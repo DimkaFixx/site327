@@ -190,13 +190,22 @@ export const api = {
     }),
   deleteTab: (id: string) =>
     request<{ deleted: boolean }>(`/api/admin/tabs/${id}`, { method: "DELETE" }),
+  moveTab: (id: string, direction: "up" | "down") =>
+    request<{ moved: boolean }>(`/api/admin/tabs/${id}/move`, { method: "POST", body: JSON.stringify({ direction }) }),
   createForm: (payload: Omit<FormItem, "id">) =>
     request<FormItem>("/api/admin/forms", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  updateForm: (id: string, payload: Omit<FormItem, "id">) =>
+    request<FormItem>(`/api/admin/forms/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   deleteForm: (id: string) =>
     request<{ deleted: boolean }>(`/api/admin/forms/${id}`, { method: "DELETE" }),
+  moveForm: (id: string, direction: "up" | "down") =>
+    request<{ moved: boolean }>(`/api/admin/forms/${id}/move`, { method: "POST", body: JSON.stringify({ direction }) }),
   createDocsSection: (title: string, audience: Audience) =>
     request<DocsSection>("/api/admin/docs-sections", {
       method: "POST",
@@ -204,6 +213,8 @@ export const api = {
     }),
   deleteDocsSection: (id: string) =>
     request<{ deleted: boolean }>(`/api/admin/docs-sections/${id}`, { method: "DELETE" }),
+  moveDocsSection: (id: string, direction: "up" | "down") =>
+    request<{ moved: boolean }>(`/api/admin/docs-sections/${id}/move`, { method: "POST", body: JSON.stringify({ direction }) }),
   createDoc: (payload: Omit<DocItem, "id">) =>
     request<DocItem>("/api/admin/docs", {
       method: "POST",
@@ -216,6 +227,8 @@ export const api = {
     }),
   deleteDoc: (id: string) =>
     request<{ deleted: boolean }>(`/api/admin/docs/${id}`, { method: "DELETE" }),
+  moveDoc: (id: string, direction: "up" | "down") =>
+    request<{ moved: boolean }>(`/api/admin/docs/${id}/move`, { method: "POST", body: JSON.stringify({ direction }) }),
   uploadImage: (file: File) => {
     const body = new FormData();
     body.append("file", file);

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.repositories.audit import log_admin_event
-from app.repositories.forms_store import create_form, create_tab, delete_form, delete_tab, list_tabs, resolve_access
-from app.schemas.models import FormItem, FormPayload, FormTab, TabPayload
+from app.repositories.forms_store import create_form, create_tab, delete_form, delete_tab, list_tabs, move_form, move_tab, resolve_access, update_form
+from app.schemas.models import FormItem, FormPayload, FormTab, MovePayload, TabPayload
 from app.services.sheets import find_soldier
 from app.utils.security import is_current_admin, require_admin, require_ready_session
 
@@ -42,12 +42,40 @@ async def admin_delete_tab(tab_id: str, request: Request) -> dict[str, bool]:
     return {"deleted": True}
 
 
+@router.post("/admin/tabs/{tab_id}/move")
+async def admin_move_tab(tab_id: str, payload: MovePayload, request: Request) -> dict[str, bool]:
+    require_admin(request)
+    if not move_tab(tab_id, payload.direction):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Невозможно переместить раздел")
+    log_admin_event(request, "move_form_tab", tab_id, {"direction": payload.direction})
+    return {"moved": True}
+
+
 @router.post("/admin/forms", response_model=FormItem)
 async def admin_create_form(payload: FormPayload, request: Request) -> FormItem:
     require_admin(request)
     form = create_form(payload.model_dump(mode="json"))
     log_admin_event(request, "create_form", form.id, {"title": form.title, "tab_id": form.tab_id})
     return form
+
+
+@router.patch("/admin/forms/{form_id}", response_model=FormItem)
+async def admin_update_form(form_id: str, payload: FormPayload, request: Request) -> FormItem:
+    require_admin(request)
+    form = update_form(form_id, payload.model_dump(mode="json"))
+    if form is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Форма или раздел не найдены")
+    log_admin_event(request, "update_form", form_id, {"title": form.title, "tab_id": form.tab_id})
+    return form
+
+
+@router.post("/admin/forms/{form_id}/move")
+async def admin_move_form(form_id: str, payload: MovePayload, request: Request) -> dict[str, bool]:
+    require_admin(request)
+    if not move_form(form_id, payload.direction):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Невозможно переместить форму")
+    log_admin_event(request, "move_form", form_id, {"direction": payload.direction})
+    return {"moved": True}
 
 
 @router.delete("/admin/forms/{form_id}")

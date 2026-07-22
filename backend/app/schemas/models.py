@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -110,6 +110,10 @@ class AccessRules(BaseModel):
 class TabPayload(BaseModel):
     title: str = Field(min_length=1, max_length=80)
     audience: Audience = "public"
+
+
+class MovePayload(BaseModel):
+    direction: Literal["up", "down"]
 
 
 class FormPayload(BaseModel):

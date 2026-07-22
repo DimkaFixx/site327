@@ -27,6 +27,7 @@ def _default_store() -> DocsStore:
             DocsSection(id="training", title="Обучение", audience="public", docs=[]),
             DocsSection(id="instructors", title="Инструкторская документация", audience="instructor", docs=[]),
             DocsSection(id="officers", title="Офицерская документация", audience="officer", docs=[]),
+            DocsSection(id="archive", title="Архив", audience="admin", docs=[]),
         ]
     )
 
@@ -36,7 +37,7 @@ def load_docs_store() -> DocsStore:
     if not path.exists():
         return _default_store()
     store = DocsStore.model_validate_json(read_text_locked(path))
-    return _migrate_doc_access_groups(store)
+    return _migrate_docs_store(store)
 
 
 def save_docs_store(store: DocsStore) -> DocsStore:
@@ -45,7 +46,7 @@ def save_docs_store(store: DocsStore) -> DocsStore:
     return store
 
 
-def _migrate_doc_access_groups(store: DocsStore) -> DocsStore:
+def _migrate_docs_store(store: DocsStore) -> DocsStore:
     groups = list(store.access_rules.groups)
     existing = {group.id for group in groups}
     if "instructor" not in existing:
@@ -67,6 +68,8 @@ def _migrate_doc_access_groups(store: DocsStore) -> DocsStore:
             )
         )
     store.access_rules.groups = groups
+    if not any(section.id == "archive" for section in store.sections):
+        store.sections.append(DocsSection(id="archive", title="Архив", audience="admin", docs=[]))
     return store
 
 
@@ -174,6 +177,24 @@ def delete_docs_section(section_id: str) -> bool:
         return True
 
 
+def _move(items: list, item_id: str, direction: str) -> bool:
+    index = next((index for index, item in enumerate(items) if item.id == item_id), -1)
+    target = index - 1 if direction == "up" else index + 1
+    if index < 0 or target < 0 or target >= len(items):
+        return False
+    items[index], items[target] = items[target], items[index]
+    return True
+
+
+def move_docs_section(section_id: str, direction: str) -> bool:
+    with _store_lock:
+        store = load_docs_store()
+        if not _move(store.sections, section_id, direction):
+            return False
+        save_docs_store(store)
+        return True
+
+
 def create_doc(payload: DocPayload) -> DocItem:
     with _store_lock:
         store = load_docs_store()
@@ -211,6 +232,16 @@ def update_doc(doc_id: str, payload: DocPayload) -> DocItem | None:
         target_section.docs.append(found_doc)
         save_docs_store(store)
         return found_doc
+
+
+def move_doc(doc_id: str, direction: str) -> bool:
+    with _store_lock:
+        store = load_docs_store()
+        for section in store.sections:
+            if _move(section.docs, doc_id, direction):
+                save_docs_store(store)
+                return True
+    return False
 
 
 def delete_doc(doc_id: str) -> bool:

@@ -4,10 +4,10 @@ import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, Set
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormTab, HomePage, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormItem, FormTab, HomePage, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 type View = "me" | "profiles" | "forms" | "docs";
-type FormsAdminSheet = "view" | "create";
+type FormsAdminSheet = "view" | "create" | "edit";
 type DocsAdminSheet = "view" | "create";
 
 function emptyDocDraft(sectionId = ""): Omit<DocItem, "id"> {
@@ -253,7 +253,7 @@ function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
   );
 }
 
-function HomeScreen() {
+function HomeScreen({ session }: { session: Session | null }) {
   const [page, setPage] = useState<HomePage | null>(null);
   const [error, setError] = useState("");
 
@@ -270,7 +270,10 @@ function HomeScreen() {
           <p className="eyebrow">327 Star Corp</p>
           <h1>{page?.title || "327 Star Corp"}</h1>
         </div>
-        <a className="ghost-link primary-home-link" href="#/archive">Войти в архив</a>
+        <div className="top-actions">
+          <a className="ghost-link primary-home-link" href="#/archive">{session ? "В архив" : "Войти в архив"}</a>
+          {session?.is_admin && <a className="ghost-link" href="#/ghost-admin"><Shield size={16} /> Админка</a>}
+        </div>
       </header>
       {error && <div className="alert">{error}</div>}
       {!error && !page && <div className="empty">Загрузка главной...</div>}
@@ -1093,6 +1096,7 @@ function AdminPanel({ session }: { session: Session }) {
   const [tabTitle, setTabTitle] = useState("");
   const [tabAudience, setTabAudience] = useState<Audience>("public");
   const [form, setForm] = useState({ title: "", url: "", description: "", tab_id: "", audience: "public" as Audience, active: true });
+  const [editingFormId, setEditingFormId] = useState<string | null>(null);
   const [formsAdminSheet, setFormsAdminSheet] = useState<FormsAdminSheet>("view");
   const [docsSectionTitle, setDocsSectionTitle] = useState("");
   const [docsSectionAudience, setDocsSectionAudience] = useState<Audience>("public");
@@ -1139,9 +1143,14 @@ function AdminPanel({ session }: { session: Session }) {
     await refresh();
   }
 
-  async function addForm(event: FormEvent) {
+  async function saveForm(event: FormEvent) {
     event.preventDefault();
-    await api.createForm(form);
+    if (editingFormId) {
+      await api.updateForm(editingFormId, form);
+    } else {
+      await api.createForm(form);
+    }
+    setEditingFormId(null);
     setFormsAdminSheet("view");
     setForm({ title: "", url: "", description: "", tab_id: form.tab_id, audience: form.audience, active: true });
     await refresh();
@@ -1152,9 +1161,32 @@ function AdminPanel({ session }: { session: Session }) {
     await refresh();
   }
 
+  async function moveForm(id: string, direction: "up" | "down") {
+    await api.moveForm(id, direction);
+    await refresh();
+  }
+
+  function editForm(item: FormItem) {
+    setForm({
+      title: item.title,
+      url: item.url,
+      description: item.description,
+      tab_id: item.tab_id,
+      audience: item.audience,
+      active: item.active,
+    });
+    setEditingFormId(item.id);
+    setFormsAdminSheet("edit");
+  }
+
   async function removeTab(id: string) {
     await api.deleteTab(id);
     setForm((current) => ({ ...current, tab_id: current.tab_id === id ? "" : current.tab_id }));
+    await refresh();
+  }
+
+  async function moveTab(id: string, direction: "up" | "down") {
+    await api.moveTab(id, direction);
     await refresh();
   }
 
@@ -1171,6 +1203,11 @@ function AdminPanel({ session }: { session: Session }) {
     await refresh();
   }
 
+  async function moveDocsSection(id: string, direction: "up" | "down") {
+    await api.moveDocsSection(id, direction);
+    await refresh();
+  }
+
   async function saveDoc(event: FormEvent) {
     event.preventDefault();
     await api.createDoc(docDraft);
@@ -1181,6 +1218,11 @@ function AdminPanel({ session }: { session: Session }) {
 
   async function removeDoc(id: string) {
     await api.deleteDoc(id);
+    await refresh();
+  }
+
+  async function moveDoc(id: string, direction: "up" | "down") {
+    await api.moveDoc(id, direction);
     await refresh();
   }
 
@@ -1293,7 +1335,7 @@ function AdminPanel({ session }: { session: Session }) {
         </div>
         <div className="tabs admin-docs-tabs">
           <button className={formsAdminSheet === "view" ? "active" : ""} onClick={() => setFormsAdminSheet("view")}>Просмотр</button>
-          <button className={formsAdminSheet === "create" ? "active" : ""} onClick={() => setFormsAdminSheet("create")}>Создание</button>
+          <button className={formsAdminSheet === "create" ? "active" : ""} onClick={() => { setEditingFormId(null); setFormsAdminSheet("create"); }}>Создание</button>
         </div>
         {formsAdminSheet === "view" && (
           <div className="admin-docs-sheet">
@@ -1315,13 +1357,22 @@ function AdminPanel({ session }: { session: Session }) {
                     <h3>{tab.title} <small>{audienceLabel(tab.audience, accessRules.groups)}</small></h3>
                     <div className="admin-form-row">
                       <span>Раздел форм</span>
-                      <button onClick={() => removeTab(tab.id)}>Удалить раздел</button>
+                      <div className="row-actions">
+                        <button className="secondary-button" onClick={() => moveTab(tab.id, "up")} title="Выше">↑</button>
+                        <button className="secondary-button" onClick={() => moveTab(tab.id, "down")} title="Ниже">↓</button>
+                        <button onClick={() => removeTab(tab.id)}>Удалить раздел</button>
+                      </div>
                     </div>
                     {tab.forms.length === 0 && <p className="admin-empty-row">Форм пока нет</p>}
                     {tab.forms.map((item) => (
                       <div className="admin-form-row" key={item.id}>
                         <span>{item.title} <small>{audienceLabel(item.audience, accessRules.groups)}</small></span>
-                        <button onClick={() => removeForm(item.id)}>Удалить форму</button>
+                        <div className="row-actions">
+                          <button className="secondary-button" onClick={() => moveForm(item.id, "up")} title="Выше">↑</button>
+                          <button className="secondary-button" onClick={() => moveForm(item.id, "down")} title="Ниже">↓</button>
+                          <button className="secondary-button" onClick={() => editForm(item)}>Редактировать</button>
+                          <button onClick={() => removeForm(item.id)}>Удалить форму</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1330,9 +1381,9 @@ function AdminPanel({ session }: { session: Session }) {
             </div>
           </div>
         )}
-        {formsAdminSheet === "create" && (
-          <form className="admin-form docs-editor-form" onSubmit={addForm}>
-            <h3>Новая форма</h3>
+        {formsAdminSheet !== "view" && (
+          <form className="admin-form docs-editor-form" onSubmit={saveForm}>
+            <h3>{formsAdminSheet === "edit" ? "Редактирование формы" : "Новая форма"}</h3>
             <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Название формы" />
             <input value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} placeholder="https://forms.gle/..." />
             <textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Короткое описание" />
@@ -1348,7 +1399,11 @@ function AdminPanel({ session }: { session: Session }) {
               ))}
               <option value="admin">Админы</option>
             </select>
-            <button>Добавить форму</button>
+            <label className="check-control">
+              <input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} />
+              Форма активна
+            </label>
+            <button>{formsAdminSheet === "edit" ? "Сохранить изменения" : "Добавить форму"}</button>
           </form>
         )}
       </section>
@@ -1411,13 +1466,19 @@ function AdminPanel({ session }: { session: Session }) {
                     <h3>{section.title} <small>{audienceLabel(section.audience, docAccessRules.groups)}</small></h3>
                     <div className="admin-form-row">
                       <span>Раздел документации</span>
-                      <button onClick={() => removeDocsSection(section.id)}>Удалить раздел</button>
+                      <div className="row-actions">
+                        <button className="secondary-button" onClick={() => moveDocsSection(section.id, "up")} title="Выше">↑</button>
+                        <button className="secondary-button" onClick={() => moveDocsSection(section.id, "down")} title="Ниже">↓</button>
+                        <button onClick={() => removeDocsSection(section.id)}>Удалить раздел</button>
+                      </div>
                     </div>
                     {section.docs.length === 0 && <p className="admin-empty-row">Документов пока нет</p>}
                     {section.docs.map((doc) => (
                       <div className="admin-form-row" key={doc.id}>
                         <span>{doc.title} <small>{audienceLabel(doc.audience, docAccessRules.groups)}</small></span>
                         <div className="row-actions">
+                          <button className="secondary-button" onClick={() => moveDoc(doc.id, "up")} title="Выше">↑</button>
+                          <button className="secondary-button" onClick={() => moveDoc(doc.id, "down")} title="Ниже">↓</button>
                           <a className="secondary-button row-link-button" href={`#/docs/${doc.id}`}>Открыть</a>
                           <a className="secondary-button row-link-button" href={`#/docs/${doc.id}/edit`}>Редактировать</a>
                           <button onClick={() => removeDoc(doc.id)}>Удалить</button>
@@ -1567,6 +1628,7 @@ export function App() {
   const docRouteMatch = route.match(/^#\/docs\/([^/]+)$/);
   const docEditRouteId = docEditRouteMatch ? decodeURIComponent(docEditRouteMatch[1]) : "";
   const docRouteId = docRouteMatch ? decodeURIComponent(docRouteMatch[1]) : "";
+  const isAdminOnlyRoute = isAdminRoute || isHomeEditRoute || Boolean(docEditRouteId);
 
   useEffect(() => {
     const listener = () => setRoute(window.location.hash || "#/");
@@ -1581,10 +1643,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (isAdminRoute && !session) {
-      window.location.hash = "#/archive";
+    if (isAdminOnlyRoute && (!session || !session.is_admin)) {
+      window.location.hash = "#/";
     }
-  }, [isAdminRoute, session]);
+  }, [isAdminOnlyRoute, session]);
 
   useEffect(() => {
     if (!session || !isArchiveRoute || isAdminRoute || isHomeEditRoute || docRouteId || docEditRouteId) return;
@@ -1614,24 +1676,19 @@ export function App() {
   }
 
   if (isAdminRoute) {
-    if (!session) return null;
+    if (!session || !session.is_admin) return null;
     return <AdminPanel session={session} />;
   }
 
   if (isHomeEditRoute) {
     if (!session || !session.is_admin) {
-      return (
-        <main className="shell">
-          <div className="alert">Редактирование главной страницы доступно только админам</div>
-          <a className="ghost-link" href="#/">На главную</a>
-        </main>
-      );
+      return null;
     }
     return <HomeEditPage />;
   }
 
   if (!isArchiveRoute && !docRouteId && !docEditRouteId) {
-    return <HomeScreen />;
+    return <HomeScreen session={session} />;
   }
 
   if (!session || !currentProfile) {
@@ -1640,11 +1697,7 @@ export function App() {
 
   if (docEditRouteId) {
     if (!session.is_admin) {
-      return (
-        <main className="shell">
-          <div className="alert">Редактирование документации доступно только админам</div>
-        </main>
-      );
+      return null;
     }
     return <DocEditPage docId={docEditRouteId} />;
   }

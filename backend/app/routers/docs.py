@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.repositories.audit import log_admin_event
-from app.repositories.docs_store import create_doc, create_docs_section, delete_doc, delete_docs_section, get_doc_for_view, list_docs_sections, resolve_doc_access, update_doc
-from app.schemas.models import DocItem, DocPayload, DocsSection, DocsSectionPayload
+from app.repositories.docs_store import create_doc, create_docs_section, delete_doc, delete_docs_section, get_doc_for_view, list_docs_sections, move_doc, move_docs_section, resolve_doc_access, update_doc
+from app.schemas.models import DocItem, DocPayload, DocsSection, DocsSectionPayload, MovePayload
 from app.services.sheets import find_soldier
 from app.utils.security import is_current_admin, require_admin, require_ready_session
 
@@ -62,6 +62,15 @@ async def admin_delete_docs_section(section_id: str, request: Request) -> dict[s
     return {"deleted": True}
 
 
+@router.post("/admin/docs-sections/{section_id}/move")
+async def admin_move_docs_section(section_id: str, payload: MovePayload, request: Request) -> dict[str, bool]:
+    require_admin(request)
+    if not move_docs_section(section_id, payload.direction):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Невозможно переместить раздел")
+    log_admin_event(request, "move_docs_section", section_id, {"direction": payload.direction})
+    return {"moved": True}
+
+
 @router.post("/admin/docs", response_model=DocItem)
 async def admin_create_doc(payload: DocPayload, request: Request) -> DocItem:
     require_admin(request)
@@ -78,6 +87,15 @@ async def admin_update_doc(doc_id: str, payload: DocPayload, request: Request) -
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Документ не найден")
     log_admin_event(request, "update_doc", doc_id, {"title": updated.title, "section_id": updated.section_id})
     return updated
+
+
+@router.post("/admin/docs/{doc_id}/move")
+async def admin_move_doc(doc_id: str, payload: MovePayload, request: Request) -> dict[str, bool]:
+    require_admin(request)
+    if not move_doc(doc_id, payload.direction):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Невозможно переместить документ")
+    log_admin_event(request, "move_doc", doc_id, {"direction": payload.direction})
+    return {"moved": True}
 
 
 @router.delete("/admin/docs/{doc_id}")

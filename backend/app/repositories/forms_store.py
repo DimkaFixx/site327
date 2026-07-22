@@ -28,6 +28,7 @@ def _default_store() -> FormsStore:
             FormTab(id="instructors", title="Инструкторские формы", audience="instructor", forms=[]),
             FormTab(id="officers", title="Офицерские формы", audience="officer", forms=[]),
             FormTab(id="admin", title="Админские формы", audience="admin", forms=[]),
+            FormTab(id="archive", title="Архив", audience="admin", forms=[]),
         ]
     )
 
@@ -37,7 +38,7 @@ def load_store() -> FormsStore:
     if not path.exists():
         return _default_store()
     store = FormsStore.model_validate_json(read_text_locked(path))
-    return _migrate_access_groups(store)
+    return _migrate_store(store)
 
 
 def save_store(store: FormsStore) -> FormsStore:
@@ -61,7 +62,7 @@ def _unique_group_id(base: str, groups: list[AccessGroup]) -> str:
     return f"{base}-{index}"
 
 
-def _migrate_access_groups(store: FormsStore) -> FormsStore:
+def _migrate_store(store: FormsStore) -> FormsStore:
     groups = list(store.access_rules.groups)
     existing = {group.id for group in groups}
     if "instructor" not in existing:
@@ -85,6 +86,8 @@ def _migrate_access_groups(store: FormsStore) -> FormsStore:
             )
         )
     store.access_rules.groups = groups
+    if not any(tab.id == "archive" for tab in store.tabs):
+        store.tabs.append(FormTab(id="archive", title="Архив", audience="admin", forms=[]))
     return store
 
 
@@ -259,6 +262,24 @@ def delete_tab(tab_id: str) -> bool:
         return True
 
 
+def _move(items: list, item_id: str, direction: str) -> bool:
+    index = next((index for index, item in enumerate(items) if item.id == item_id), -1)
+    target = index - 1 if direction == "up" else index + 1
+    if index < 0 or target < 0 or target >= len(items):
+        return False
+    items[index], items[target] = items[target], items[index]
+    return True
+
+
+def move_tab(tab_id: str, direction: str) -> bool:
+    with _store_lock:
+        store = load_store()
+        if not _move(store.tabs, tab_id, direction):
+            return False
+        save_store(store)
+        return True
+
+
 def create_form(payload: dict) -> FormItem:
     with _store_lock:
         store = load_store()
@@ -271,6 +292,32 @@ def create_form(payload: dict) -> FormItem:
         tab.forms.append(form)
         save_store(store)
         return form
+
+
+def update_form(form_id: str, payload: dict) -> FormItem | None:
+    with _store_lock:
+        store = load_store()
+        target_tab = next((tab for tab in store.tabs if tab.id == payload["tab_id"]), None)
+        if target_tab is None:
+            return None
+        if not any(form.id == form_id for tab in store.tabs for form in tab.forms):
+            return None
+        for tab in store.tabs:
+            tab.forms = [form for form in tab.forms if form.id != form_id]
+        updated = FormItem(id=form_id, **payload)
+        target_tab.forms.append(updated)
+        save_store(store)
+        return updated
+
+
+def move_form(form_id: str, direction: str) -> bool:
+    with _store_lock:
+        store = load_store()
+        for tab in store.tabs:
+            if _move(tab.forms, form_id, direction):
+                save_store(store)
+                return True
+    return False
 
 
 def delete_form(form_id: str) -> bool:
