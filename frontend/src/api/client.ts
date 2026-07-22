@@ -133,6 +133,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
+  me: () => request<Session>("/api/me"),
   home: () => request<HomePage>("/api/home"),
   soldiers: () => request<Soldier[]>("/api/soldiers"),
   forms: () => request<FormTab[]>("/api/forms"),

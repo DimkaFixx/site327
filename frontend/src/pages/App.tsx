@@ -1,5 +1,5 @@
 import { BookOpenText, ClipboardList, ExternalLink, LogOut, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -1082,7 +1082,7 @@ function DocEditorFields({
   );
 }
 
-function AdminPanel({ session }: { session: Session }) {
+function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdminAccessDenied: () => void }) {
   const [store, setStore] = useState<FormTab[]>([]);
   const [docsStore, setDocsStore] = useState<DocsSection[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -1133,8 +1133,15 @@ function AdminPanel({ session }: { session: Session }) {
   }
 
   useEffect(() => {
-    refresh().catch((error) => setError(error instanceof Error ? error.message : "Ошибка загрузки"));
-  }, []);
+    refresh().catch((error) => {
+      const message = error instanceof Error ? error.message : "Ошибка загрузки";
+      if (message === "Admin access required") {
+        onAdminAccessDenied();
+        return;
+      }
+      setError(message);
+    });
+  }, [onAdminAccessDenied]);
 
   async function addTab(event: FormEvent) {
     event.preventDefault();
@@ -1630,6 +1637,15 @@ export function App() {
   const docRouteId = docRouteMatch ? decodeURIComponent(docRouteMatch[1]) : "";
   const isAdminOnlyRoute = isAdminRoute || isHomeEditRoute || Boolean(docEditRouteId);
 
+  const syncSession = useCallback(async () => {
+    const updated = await api.me();
+    api.saveSession(updated);
+  }, []);
+
+  const handleAdminAccessDenied = useCallback(() => {
+    void syncSession().catch(() => api.clearSession());
+  }, [syncSession]);
+
   useEffect(() => {
     const listener = () => setRoute(window.location.hash || "#/");
     window.addEventListener("hashchange", listener);
@@ -1641,6 +1657,24 @@ export function App() {
     window.addEventListener("star327-session", listener);
     return () => window.removeEventListener("star327-session", listener);
   }, []);
+
+  useEffect(() => {
+    if (!session || session.requires_discord_verification || session.requires_password_setup) return;
+    const updateSession = () => {
+      void syncSession().catch(() => api.clearSession());
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") updateSession();
+    };
+
+    updateSession();
+    const interval = window.setInterval(updateSession, 15_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [session?.profile.nickname, session?.requires_discord_verification, session?.requires_password_setup, syncSession]);
 
   useEffect(() => {
     if (isAdminOnlyRoute && (!session || !session.is_admin)) {
@@ -1677,7 +1711,7 @@ export function App() {
 
   if (isAdminRoute) {
     if (!session || !session.is_admin) return null;
-    return <AdminPanel session={session} />;
+    return <AdminPanel session={session} onAdminAccessDenied={handleAdminAccessDenied} />;
   }
 
   if (isHomeEditRoute) {
