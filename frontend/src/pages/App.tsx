@@ -138,7 +138,7 @@ function profileRows(profile: Soldier) {
     ["Звание", profile.rank],
     ["Номер", profile.number],
     ["Отпуск/Мороз", String(profile.raw["Отпуск/Мороз"] || "")],
-    ["Выслуга", profile.service_time],
+    ["Специализация", String(profile.raw["Специализация"] || profile.raw["Спец-я"] || "")],
     ["Должность", profile.position],
     ["Статус", profile.status],
   ].filter(([, value]) => String(value || "").trim());
