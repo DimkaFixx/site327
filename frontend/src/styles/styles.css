@@ -29,7 +29,7 @@ body {
   min-height: 100vh;
   background:
     linear-gradient(rgba(15, 13, 8, 0.78), rgba(15, 13, 8, 0.93)),
-    url("https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1800&q=80") center/cover fixed;
+    url("/background.jpg") center/cover fixed;
 }
 
 button,
