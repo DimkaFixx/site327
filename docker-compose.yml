@@ -1,0 +1,30 @@
+
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: true
+    environment:
+      FORMS_STORE_PATH: /app/data/forms.json
+      DOCS_STORE_PATH: /app/data/docs.json
+      UPLOADS_PATH: /app/data/uploads
+    volumes:
+      - backend-data:/app/data
+      - ./backend/.creditials.json:/app/.creditials.json:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:8080"
+    restart: unless-stopped
+
+volumes:
+  backend-data:
