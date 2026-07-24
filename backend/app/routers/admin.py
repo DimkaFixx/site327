@@ -7,12 +7,12 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.config import get_settings
 from app.repositories.audit import list_audit_events, log_admin_event
-from app.repositories.docs_store import create_doc_access_group, delete_doc_access_group, get_doc_access_rules, load_docs_store, update_doc_access_group
+from app.repositories.docs_store import create_doc_access_group, delete_doc_access_group, get_doc_access_rules, load_docs_store, update_doc_access_group, update_markdown_settings
 from app.repositories.forms_store import create_access_group, delete_access_group, get_access_rules, load_store, update_access_group
 from app.repositories.sessions import revoke_user_refresh_tokens
 from app.repositories.users import list_users, reset_user_password, set_user_roles
 from app.repositories.verification import delete_verifications, list_active_verification_codes, reset_verifications
-from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, UserAccount, UserRolesPayload, VerificationCodeAdminItem
+from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, MarkdownSettings, UserAccount, UserRolesPayload, VerificationCodeAdminItem
 from app.utils.security import require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -29,6 +29,14 @@ async def admin_forms_store(request: Request):
 async def admin_docs_store(request: Request):
     require_admin(request)
     return load_docs_store()
+
+
+@router.put("/docs-settings", response_model=MarkdownSettings)
+async def admin_update_docs_settings(payload: MarkdownSettings, request: Request) -> MarkdownSettings:
+    require_admin(request)
+    settings = update_markdown_settings(payload)
+    log_admin_event(request, "update_markdown_settings", "docs", settings.model_dump())
+    return settings
 
 
 @router.post("/uploads/image")

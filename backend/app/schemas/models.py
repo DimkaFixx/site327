@@ -180,9 +180,22 @@ class DocsSection(DocsSectionPayload):
     docs: list[DocItem] = Field(default_factory=list)
 
 
+class MarkdownSettings(BaseModel):
+    font_size: int = Field(default=16, ge=12, le=28)
+    line_height: float = Field(default=1.65, ge=1.2, le=2.2)
+    content_padding: int = Field(default=28, ge=16, le=64)
+    h1_font_size: int = Field(default=38, ge=24, le=64)
+    h2_font_size: int = Field(default=34, ge=20, le=56)
+    h3_font_size: int = Field(default=26, ge=18, le=48)
+    paragraph_spacing: int = Field(default=16, ge=6, le=32)
+    heading_margin_top: int = Field(default=28, ge=8, le=64)
+    heading_margin_bottom: int = Field(default=14, ge=4, le=40)
+
+
 class DocsStore(BaseModel):
     access_rules: AccessRules = Field(default_factory=AccessRules)
     sections: list[DocsSection] = Field(default_factory=list)
+    markdown_settings: MarkdownSettings = Field(default_factory=MarkdownSettings)
 
 
 class HomePage(BaseModel):

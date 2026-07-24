@@ -71,6 +71,18 @@ export type DocsSection = {
   docs: DocItem[];
 };
 
+export type MarkdownSettings = {
+  font_size: number;
+  line_height: number;
+  content_padding: number;
+  h1_font_size: number;
+  h2_font_size: number;
+  h3_font_size: number;
+  paragraph_spacing: number;
+  heading_margin_top: number;
+  heading_margin_bottom: number;
+};
+
 export type HomePage = {
   title: string;
   content: string;

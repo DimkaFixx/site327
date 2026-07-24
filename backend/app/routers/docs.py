@@ -1,12 +1,17 @@
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.repositories.audit import log_admin_event
-from app.repositories.docs_store import create_doc, create_docs_section, delete_doc, delete_docs_section, get_doc_for_view, list_docs_sections, move_doc, move_docs_section, resolve_doc_access, update_doc
-from app.schemas.models import DocItem, DocPayload, DocsSection, DocsSectionPayload, MovePayload
+from app.repositories.docs_store import create_doc, create_docs_section, delete_doc, delete_docs_section, get_doc_for_view, get_markdown_settings, list_docs_sections, move_doc, move_docs_section, resolve_doc_access, update_doc
+from app.schemas.models import DocItem, DocPayload, DocsSection, DocsSectionPayload, MarkdownSettings, MovePayload
 from app.services.sheets import find_soldier
 from app.utils.security import is_current_admin, require_admin, require_ready_session
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/docs-settings", response_model=MarkdownSettings)
+async def docs_settings() -> MarkdownSettings:
+    return get_markdown_settings()
 
 
 @router.get("/docs", response_model=list[DocsSection])

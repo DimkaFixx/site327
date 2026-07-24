@@ -4,11 +4,37 @@ import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, Set
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormItem, FormTab, HomePage, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormItem, FormTab, HomePage, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 type View = "me" | "profiles" | "forms" | "docs";
 type FormsAdminSheet = "view" | "create" | "edit";
 type DocsAdminSheet = "view" | "create";
+
+const defaultMarkdownSettings: MarkdownSettings = {
+  font_size: 16,
+  line_height: 1.65,
+  content_padding: 28,
+  h1_font_size: 38,
+  h2_font_size: 34,
+  h3_font_size: 26,
+  paragraph_spacing: 16,
+  heading_margin_top: 28,
+  heading_margin_bottom: 14,
+};
+
+function markdownSettingsStyle(settings: MarkdownSettings): React.CSSProperties {
+  return {
+    "--markdown-font-size": `${settings.font_size}px`,
+    "--markdown-line-height": String(settings.line_height),
+    "--markdown-padding": `${settings.content_padding}px`,
+    "--markdown-h1-size": `${settings.h1_font_size}px`,
+    "--markdown-h2-size": `${settings.h2_font_size}px`,
+    "--markdown-h3-size": `${settings.h3_font_size}px`,
+    "--markdown-paragraph-spacing": `${settings.paragraph_spacing}px`,
+    "--markdown-heading-margin-top": `${settings.heading_margin_top}px`,
+    "--markdown-heading-margin-bottom": `${settings.heading_margin_bottom}px`,
+  } as React.CSSProperties;
+}
 
 function emptyDocDraft(sectionId = ""): Omit<DocItem, "id"> {
   return {
@@ -279,12 +305,17 @@ function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
 
 function HomeScreen({ session }: { session: Session | null }) {
   const [page, setPage] = useState<HomePage | null>(null);
+  const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api.home()
       .then(setPage)
       .catch((error) => setError(error instanceof Error ? error.message : "Не удалось загрузить главную страницу"));
+  }, []);
+
+  useEffect(() => {
+    api.docsSettings().then(setMarkdownSettings).catch(() => undefined);
   }, []);
 
   return (
@@ -301,7 +332,7 @@ function HomeScreen({ session }: { session: Session | null }) {
       {error && <div className="alert">{error}</div>}
       {!error && !page && <div className="empty">Загрузка главной...</div>}
       {page && (
-        <article className="markdown-document full-document">
+        <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
         </article>
       )}
@@ -745,13 +776,17 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
 
 function DocPage({ docId }: { docId: string }) {
   const [doc, setDoc] = useState<DocItem | null>(null);
+  const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setDoc(null);
     setError("");
-    api.doc(docId)
-      .then(setDoc)
+    Promise.all([api.doc(docId), api.docsSettings()])
+      .then(([doc, settings]) => {
+        setDoc(doc);
+        setMarkdownSettings(settings);
+      })
       .catch((error) => setError(error instanceof Error ? error.message : "Документ не найден"));
   }, [docId]);
 
@@ -771,7 +806,7 @@ function DocPage({ docId }: { docId: string }) {
       {!error && !doc && <div className="empty">Загрузка документа...</div>}
       {doc && (
         <div className="document-reading-layout">
-          <article className="markdown-document full-document">
+          <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
             <div className="document-header">
               <span>{audienceLabel(doc.audience)}</span>
               <h2>{doc.title}</h2>
@@ -1215,6 +1250,9 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     active: true,
   });
   const [docsAdminSheet, setDocsAdminSheet] = useState<DocsAdminSheet>("view");
+  const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
+  const [isMarkdownSettingsOpen, setIsMarkdownSettingsOpen] = useState(false);
+  const [isMarkdownSettingsSaving, setIsMarkdownSettingsSaving] = useState(false);
   const [error, setError] = useState("");
 
   async function refresh() {
@@ -1229,6 +1267,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     ]);
     setStore(result.tabs);
     setDocsStore(docsResult.sections);
+    setMarkdownSettings(docsResult.markdown_settings);
     setUsers(accounts);
     setVerificationCodes(codes);
     setAuditEvents(audit);
@@ -1254,6 +1293,20 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     await api.createTab(tabTitle, tabAudience);
     setTabTitle("");
     await refresh();
+  }
+
+  async function saveMarkdownSettings(event: FormEvent) {
+    event.preventDefault();
+    setIsMarkdownSettingsSaving(true);
+    try {
+      const saved = await api.updateDocsSettings(markdownSettings);
+      setMarkdownSettings(saved);
+      setIsMarkdownSettingsOpen(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось сохранить настройки Markdown");
+    } finally {
+      setIsMarkdownSettingsSaving(false);
+    }
   }
 
   async function saveForm(event: FormEvent) {
@@ -1521,7 +1574,10 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
         )}
       </section>
       <section className="admin-section">
-        <h2>Документация</h2>
+        <div className="section-heading-row">
+          <h2>Документация</h2>
+          <button className="secondary-button" onClick={() => setIsMarkdownSettingsOpen(true)}>Настроить .md</button>
+        </div>
         <div className="nested-admin-block">
           <h3>Доступы документации</h3>
           <div className="section-heading-row">
@@ -1612,6 +1668,31 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
           </form>
         )}
       </section>
+      {isMarkdownSettingsOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsMarkdownSettingsOpen(false)}>
+          <section className="access-modal markdown-settings-modal" role="dialog" aria-modal="true" aria-labelledby="markdown-settings-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="form-modal-bar">
+              <h2 id="markdown-settings-title">Настройки Markdown</h2>
+              <button className="icon-button secondary-button" onClick={() => setIsMarkdownSettingsOpen(false)} aria-label="Закрыть настройки"><X size={18} /></button>
+            </div>
+            <form className="access-modal-body markdown-settings-form" onSubmit={saveMarkdownSettings}>
+              <label>Размер основного текста, px<input type="number" min="12" max="28" value={markdownSettings.font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, font_size: Number(event.target.value) })} /></label>
+              <label>Межстрочный интервал<input type="number" min="1.2" max="2.2" step="0.05" value={markdownSettings.line_height} onChange={(event) => setMarkdownSettings({ ...markdownSettings, line_height: Number(event.target.value) })} /></label>
+              <label>Внутренний отступ документа, px<input type="number" min="16" max="64" value={markdownSettings.content_padding} onChange={(event) => setMarkdownSettings({ ...markdownSettings, content_padding: Number(event.target.value) })} /></label>
+              <label>Размер заголовка H1, px<input type="number" min="24" max="64" value={markdownSettings.h1_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, h1_font_size: Number(event.target.value) })} /></label>
+              <label>Размер заголовка H2, px<input type="number" min="20" max="56" value={markdownSettings.h2_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, h2_font_size: Number(event.target.value) })} /></label>
+              <label>Размер заголовка H3, px<input type="number" min="18" max="48" value={markdownSettings.h3_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, h3_font_size: Number(event.target.value) })} /></label>
+              <label>Отступ между абзацами, px<input type="number" min="6" max="32" value={markdownSettings.paragraph_spacing} onChange={(event) => setMarkdownSettings({ ...markdownSettings, paragraph_spacing: Number(event.target.value) })} /></label>
+              <label>Отступ над заголовком, px<input type="number" min="8" max="64" value={markdownSettings.heading_margin_top} onChange={(event) => setMarkdownSettings({ ...markdownSettings, heading_margin_top: Number(event.target.value) })} /></label>
+              <label>Отступ под заголовком, px<input type="number" min="4" max="40" value={markdownSettings.heading_margin_bottom} onChange={(event) => setMarkdownSettings({ ...markdownSettings, heading_margin_bottom: Number(event.target.value) })} /></label>
+              <div className="form-actions">
+                <button type="button" className="secondary-button" onClick={() => setIsMarkdownSettingsOpen(false)}>Отмена</button>
+                <button disabled={isMarkdownSettingsSaving}>{isMarkdownSettingsSaving ? "Сохранение..." : "Сохранить"}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
       {editingAccessGroup !== undefined && (
         <AccessGroupModal
           group={editingAccessGroup}

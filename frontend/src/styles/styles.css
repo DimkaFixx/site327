@@ -588,7 +588,7 @@ summary {
 
 .markdown-document {
   min-width: 0;
-  padding: 28px;
+  padding: var(--markdown-padding, 28px);
   animation: surface-enter 220ms ease-out both;
 }
 
@@ -699,10 +699,41 @@ summary {
   color: var(--accent-soft);
 }
 
+.markdown-document h1 {
+  font-size: var(--markdown-h1-size, 38px);
+}
+
+.markdown-document h2 {
+  font-size: var(--markdown-h2-size, 34px);
+}
+
+.markdown-document h3 {
+  font-size: var(--markdown-h3-size, 26px);
+}
+
+.markdown-document h1,
+.markdown-document h2,
+.markdown-document h3 {
+  margin-top: var(--markdown-heading-margin-top, 28px);
+  margin-bottom: var(--markdown-heading-margin-bottom, 14px);
+}
+
 .markdown-document p,
 .markdown-document li {
   color: var(--text);
-  line-height: 1.65;
+  font-size: var(--markdown-font-size, 16px);
+  line-height: var(--markdown-line-height, 1.65);
+}
+
+.markdown-document p {
+  margin-bottom: var(--markdown-paragraph-spacing, 16px);
+}
+
+.markdown-document hr {
+  height: 2px;
+  margin: var(--markdown-heading-margin-top, 28px) 0;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border: 0;
 }
 
 .markdown-document a {
@@ -899,6 +930,18 @@ summary {
 .logout-confirm-modal p {
   margin: 0;
   color: var(--muted);
+}
+
+.markdown-settings-modal {
+  width: min(560px, 100%);
+}
+
+.markdown-settings-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.markdown-settings-form .form-actions {
+  grid-column: 1 / -1;
 }
 
 .audit-modal {
@@ -1261,7 +1304,8 @@ summary {
   .docs-layout,
   .admin-docs-viewer,
   .docs-editor-row,
-  .editor-split {
+  .editor-split,
+  .markdown-settings-form {
     grid-template-columns: 1fr;
   }
 

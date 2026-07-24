@@ -1,4 +1,4 @@
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormItem, FormTab, HomePage, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormItem, FormTab, HomePage, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -138,9 +138,12 @@ export const api = {
   soldiers: () => request<Soldier[]>("/api/soldiers"),
   forms: () => request<FormTab[]>("/api/forms"),
   docs: () => request<DocsSection[]>("/api/docs"),
+  docsSettings: () => request<MarkdownSettings>("/api/docs-settings"),
   doc: (id: string) => request<DocItem>(`/api/docs/${encodeURIComponent(id)}`),
   adminStore: () => request<{ tabs: FormTab[] }>("/api/admin/forms-store"),
-  adminDocsStore: () => request<{ sections: DocsSection[] }>("/api/admin/docs-store"),
+  adminDocsStore: () => request<{ sections: DocsSection[]; markdown_settings: MarkdownSettings }>("/api/admin/docs-store"),
+  updateDocsSettings: (payload: MarkdownSettings) =>
+    request<MarkdownSettings>("/api/admin/docs-settings", { method: "PUT", body: JSON.stringify(payload) }),
   accessRules: () => request<AccessRules>("/api/admin/access-rules"),
   docAccessRules: () => request<AccessRules>("/api/admin/doc-access-rules"),
   createAccessGroup: (payload: AccessGroupPayload) =>

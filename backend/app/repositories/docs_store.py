@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.repositories.forms_store import can_view_audience, create_access_group_in_rules, delete_access_group_from_rules, resolve_access_groups, update_access_group_in_rules
-from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, DocItem, DocPayload, DocsSection, DocsSectionPayload, DocsStore, Soldier
+from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, DocItem, DocPayload, DocsSection, DocsSectionPayload, DocsStore, MarkdownSettings, Soldier
 from app.utils.file_store import read_text_locked, write_text_atomic
 
 
@@ -75,6 +75,18 @@ def _migrate_docs_store(store: DocsStore) -> DocsStore:
 
 def get_doc_access_rules() -> AccessRules:
     return load_docs_store().access_rules
+
+
+def get_markdown_settings() -> MarkdownSettings:
+    return load_docs_store().markdown_settings
+
+
+def update_markdown_settings(payload: MarkdownSettings) -> MarkdownSettings:
+    with _store_lock:
+        store = load_docs_store()
+        store.markdown_settings = payload
+        save_docs_store(store)
+        return store.markdown_settings
 
 
 def create_doc_access_group(payload: AccessGroupPayload) -> AccessGroup:
