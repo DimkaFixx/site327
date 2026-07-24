@@ -57,6 +57,8 @@ export type DocItem = {
   title: string;
   section_id: string;
   audience: Audience;
+  document_type: "page" | "link";
+  url: string;
   content: string;
   description: string;
   active: boolean;

@@ -2,7 +2,7 @@ from typing import Any, Literal
 from datetime import datetime
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
 class Soldier(BaseModel):
@@ -156,9 +156,19 @@ class DocPayload(BaseModel):
     title: str = Field(min_length=1, max_length=140)
     section_id: str = Field(min_length=1, max_length=80)
     audience: Audience = "public"
+    document_type: Literal["page", "link"] = "page"
+    url: HttpUrl | None = None
     content: str = Field(default="", max_length=200_000)
     description: str = Field(default="", max_length=500)
     active: bool = True
+
+    @model_validator(mode="after")
+    def validate_link_document(self) -> "DocPayload":
+        if self.document_type == "link" and self.url is None:
+            raise ValueError("Для документа-ссылки укажите HTTPS-адрес")
+        if self.url is not None and self.url.scheme != "https":
+            raise ValueError("Разрешены только HTTPS-ссылки")
+        return self
 
 
 class DocItem(DocPayload):

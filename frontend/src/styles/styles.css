@@ -29,7 +29,7 @@ body {
   min-height: 100vh;
   background:
     linear-gradient(rgba(15, 13, 8, 0.78), rgba(15, 13, 8, 0.93)),
-    url("/background.jpg") center/cover fixed;
+    url("/background.webp") center/cover fixed;
 }
 
 button,
@@ -41,7 +41,7 @@ textarea {
 
 button,
 a {
-  transition: 0.16s ease;
+  transition: transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .login {
@@ -169,7 +169,9 @@ button:disabled {
 }
 
 .primary-home-link {
-  min-width: 160px;
+  min-width: 0;
+  padding-inline: 18px;
+  white-space: nowrap;
 }
 
 .alert {
@@ -217,6 +219,66 @@ button:disabled {
   padding: 0;
 }
 
+.mobile-menu-toggle,
+.mobile-menu {
+  display: none;
+}
+
+@keyframes surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mobile-menu-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mobile-menu-item-reveal {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modal-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
 .nav,
 .tabs {
   flex-wrap: wrap;
@@ -240,6 +302,7 @@ button:disabled {
 
 .profile-card {
   padding: 28px;
+  animation: surface-enter 220ms ease-out both;
 }
 
 .rank {
@@ -316,6 +379,7 @@ summary {
 
 .list-panel {
   padding: 14px;
+  animation: surface-enter 180ms ease-out both;
 }
 
 .search {
@@ -380,7 +444,7 @@ summary {
 
 .forms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
@@ -420,11 +484,54 @@ summary {
 
 .docs-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
-.docs-list button,
+.external-doc-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: stretch;
+  padding: 10px 16px;
+  color: var(--accent-soft);
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  animation: surface-enter 180ms ease-out both;
+}
+
+.external-doc-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: rgba(57, 46, 17, 0.88);
+}
+
+.external-doc-main {
+  display: grid;
+  gap: 4px;
+  justify-content: start;
+  min-height: auto;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  font-weight: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.external-doc-main:hover {
+  transform: none;
+  background: transparent;
+}
+
+.external-doc-main strong {
+  color: var(--text);
+}
+
+.docs-list > button,
 .doc-link-card {
   display: grid;
   gap: 4px;
@@ -437,9 +544,10 @@ summary {
   border-radius: 8px;
   padding: 10px 16px;
   text-decoration: none;
+  animation: surface-enter 180ms ease-out both;
 }
 
-.docs-list button.active {
+.docs-list > button.active {
   color: #1f1704;
   background: var(--accent);
 }
@@ -448,6 +556,22 @@ summary {
   transform: translateY(-1px);
   border-color: var(--border-strong);
   background: rgba(57, 46, 17, 0.88);
+}
+
+.external-doc-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  color: var(--accent-soft);
+  background: var(--panel-soft);
+  border: 0;
+  border-radius: 8px;
+}
+
+.external-doc-open:hover {
+  color: #1f1704;
+  background: var(--accent);
 }
 
 .doc-link-card strong {
@@ -465,6 +589,7 @@ summary {
 .markdown-document {
   min-width: 0;
   padding: 28px;
+  animation: surface-enter 220ms ease-out both;
 }
 
 .document-reading-layout {
@@ -593,6 +718,19 @@ summary {
   border-radius: 8px;
 }
 
+.document-external-link {
+  margin-bottom: 16px;
+}
+
+.document-link-frame {
+  display: block;
+  width: 100%;
+  min-height: min(70vh, 780px);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
 .markdown-document table {
   width: 100%;
   border-collapse: collapse;
@@ -637,6 +775,22 @@ summary {
   display: grid;
   gap: 18px;
   padding: 20px;
+  animation: surface-enter 180ms ease-out both;
+}
+
+.form-card:nth-child(2),
+.docs-list > :nth-child(2) {
+  animation-delay: 35ms;
+}
+
+.form-card:nth-child(3),
+.docs-list > :nth-child(3) {
+  animation-delay: 70ms;
+}
+
+.form-card:nth-child(4),
+.docs-list > :nth-child(4) {
+  animation-delay: 105ms;
 }
 
 .form-actions {
@@ -678,6 +832,12 @@ summary {
   background: var(--panel);
   border-radius: 8px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+  animation: modal-enter 160ms ease-out both;
+}
+
+.form-modal.is-closing {
+  pointer-events: none;
+  animation: modal-exit 160ms ease-in both;
 }
 
 .form-modal-bar {
@@ -693,6 +853,12 @@ summary {
 .form-modal-bar h2 {
   margin: 0;
   font-size: 18px;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .form-modal iframe {
@@ -725,6 +891,16 @@ summary {
   padding: 18px;
 }
 
+.logout-confirm-modal {
+  width: min(420px, 100%);
+  animation: modal-enter 160ms ease-out both;
+}
+
+.logout-confirm-modal p {
+  margin: 0;
+  color: var(--muted);
+}
+
 .audit-modal {
   width: min(920px, 100%);
 }
@@ -743,12 +919,14 @@ summary {
 .empty {
   padding: 24px;
   color: var(--muted);
+  animation: surface-enter 180ms ease-out both;
 }
 
 .admin-form,
 .admin-list,
 .admin-section {
   padding: 20px;
+  animation: surface-enter 200ms ease-out both;
 }
 
 .admin-section {
@@ -1094,10 +1272,120 @@ summary {
   }
 
   .topbar {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .topbar > div:first-child {
+    min-width: 0;
+  }
+
+  .topbar h1 {
+    font-size: 30px;
+  }
+
+  .desktop-actions,
+  .desktop-nav {
+    display: none;
+  }
+
+  .mobile-menu-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-top: 4px;
+  }
+
+  .mobile-menu {
     display: grid;
+    gap: 8px;
+    margin: 0 0 18px;
+    padding: 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: var(--panel);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    transform-origin: top center;
+    animation: mobile-menu-reveal 180ms ease-out both;
+  }
+
+  .mobile-menu button,
+  .mobile-menu a {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    min-height: 46px;
+    padding: 10px 14px;
+    color: var(--accent-soft);
+    font-weight: 800;
+    text-decoration: none;
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    animation: mobile-menu-item-reveal 200ms ease-out both;
+  }
+
+  .mobile-menu > :nth-child(1) { animation-delay: 25ms; }
+  .mobile-menu > :nth-child(2) { animation-delay: 50ms; }
+  .mobile-menu > :nth-child(3) { animation-delay: 75ms; }
+  .mobile-menu > :nth-child(4) { animation-delay: 100ms; }
+  .mobile-menu > :nth-child(5) { animation-delay: 125ms; }
+  .mobile-menu > :nth-child(6) { animation-delay: 150ms; }
+  .mobile-menu > :nth-child(7) { animation-delay: 175ms; }
+  .mobile-menu > :nth-child(8) { animation-delay: 200ms; }
+
+  .mobile-menu button.active {
+    color: #1f1704;
+    background: var(--accent);
+  }
+
+  .mobile-menu-divider {
+    height: 2px;
+    margin: 4px 2px;
+    background: var(--accent);
+    border-radius: 999px;
+  }
+
+  .mobile-menu .mobile-logout {
+    color: #fee2e2;
+    background: rgba(185, 28, 28, 0.86);
+    border-color: rgba(248, 113, 113, 0.35);
+  }
+
+  .mobile-menu-open .mobile-menu-content {
+    display: none;
   }
 
   h1 {
     font-size: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .mobile-menu,
+  .mobile-menu button,
+  .mobile-menu a,
+  .form-modal,
+  .logout-confirm-modal,
+  .profile-card,
+  .list-panel,
+  .form-card,
+  .external-doc-card,
+  .docs-list button,
+  .doc-link-card,
+  .markdown-document,
+  .empty,
+  .admin-form,
+  .admin-list,
+  .admin-section {
+    animation: none !important;
   }
 }

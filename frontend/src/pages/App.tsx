@@ -1,4 +1,4 @@
-import { BookOpenText, ClipboardList, ExternalLink, LogOut, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
+import { BookOpenText, ClipboardList, ExternalLink, LogOut, Menu, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
@@ -15,6 +15,8 @@ function emptyDocDraft(sectionId = ""): Omit<DocItem, "id"> {
     title: "",
     section_id: sectionId,
     audience: "public",
+    document_type: "page",
+    url: "",
     content: "",
     description: "",
     active: true,
@@ -154,6 +156,28 @@ function splitRawRows(profile: Soldier) {
   };
 }
 
+function normalizeProfileFieldKey(value: string) {
+  return value.toLocaleLowerCase().replace(/[\s_/-]+/g, "").replace(/ё/g, "е");
+}
+
+const compactProfileFieldKeys = new Set([
+  "ник",
+  "никнейм",
+  "nickname",
+  "позывной",
+  "звание",
+  "rank",
+  "номер",
+  "number",
+  "отпускмороз",
+  "специализация",
+  "спеця",
+  "должность",
+  "position",
+  "статус",
+  "status",
+]);
+
 function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
@@ -272,7 +296,6 @@ function HomeScreen({ session }: { session: Session | null }) {
         </div>
         <div className="top-actions">
           <a className="ghost-link primary-home-link" href="#/archive">{session ? "В архив" : "Войти в архив"}</a>
-          {session?.is_admin && <a className="ghost-link" href="#/ghost-admin"><Shield size={16} /> Админка</a>}
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
@@ -453,7 +476,8 @@ function PasswordSetup({ onComplete }: { session: Session; onComplete: (session:
 
 function ProfileCard({ profile }: { profile: Soldier }) {
   const { details, summary } = splitRawRows(profile);
-  const hasExpandedInfo = details.length > 0 || summary.length > 0;
+  const uniqueDetails = details.filter(([key]) => !compactProfileFieldKeys.has(normalizeProfileFieldKey(key)));
+  const hasExpandedInfo = uniqueDetails.length > 0 || summary.length > 0;
   return (
     <section className="profile-card">
       <div>
@@ -471,11 +495,11 @@ function ProfileCard({ profile }: { profile: Soldier }) {
       {hasExpandedInfo && (
         <details>
           <summary>Расширенная информация</summary>
-          {details.length > 0 && (
+          {uniqueDetails.length > 0 && (
             <div className="raw-section">
               <h3>Данные бойца</h3>
               <div className="raw-grid">
-                {details.map(([key, value]) => (
+                {uniqueDetails.map(([key, value]) => (
                   <p key={key}>
                     <span>{key}</span>
                     <b>{String(value || "-")}</b>
@@ -536,11 +560,15 @@ function ProfilesView({ soldiers }: { soldiers: Soldier[] }) {
 function FormsView({ tabs }: { tabs: FormTab[] }) {
   const [activeTab, setActiveTab] = useState(tabs[0]?.id ?? "");
   const [openForm, setOpenForm] = useState<{ title: string; url: string } | null>(null);
-  const current = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const [isFormClosing, setIsFormClosing] = useState(false);
+  const visibleTabs = useMemo(() => tabs.filter((tab) => tab.forms.length > 0), [tabs]);
+  const current = visibleTabs.find((tab) => tab.id === activeTab) ?? visibleTabs[0];
 
   useEffect(() => {
-    if (!activeTab && tabs[0]) setActiveTab(tabs[0].id);
-  }, [activeTab, tabs]);
+    if (!visibleTabs.some((tab) => tab.id === activeTab) && visibleTabs[0]) {
+      setActiveTab(visibleTabs[0].id);
+    }
+  }, [activeTab, visibleTabs]);
 
   if (!current) return <div className="empty">Формы пока не добавлены</div>;
 
@@ -556,17 +584,30 @@ function FormsView({ tabs }: { tabs: FormTab[] }) {
     }
   }
 
+  function openFormModal(form: { title: string; url: string }) {
+    setIsFormClosing(false);
+    setOpenForm(form);
+  }
+
+  function closeFormModal() {
+    if (isFormClosing) return;
+    setIsFormClosing(true);
+    window.setTimeout(() => {
+      setOpenForm(null);
+      setIsFormClosing(false);
+    }, 160);
+  }
+
   return (
     <section>
       <div className="tabs">
-        {tabs.map((tab) => (
+        {visibleTabs.map((tab) => (
           <button key={tab.id} className={current.id === tab.id ? "active" : ""} onClick={() => setActiveTab(tab.id)}>
             {tab.title}
           </button>
         ))}
       </div>
       <div className="forms-grid">
-        {current.forms.length === 0 && <div className="empty">В этой вкладке пока пусто</div>}
         {current.forms.map((form) => (
           <article className="form-card" key={form.id}>
             <div>
@@ -575,7 +616,7 @@ function FormsView({ tabs }: { tabs: FormTab[] }) {
               {form.description && <p>{form.description}</p>}
             </div>
             <div className="form-actions">
-              <button onClick={() => setOpenForm({ title: form.title, url: form.url })}>Открыть</button>
+              <button onClick={() => openFormModal({ title: form.title, url: form.url })}>Открыть</button>
               <a className="compact-link" href={form.url} target="_blank" rel="noreferrer">
                 Перейти <ExternalLink size={14} />
               </a>
@@ -584,10 +625,10 @@ function FormsView({ tabs }: { tabs: FormTab[] }) {
         ))}
       </div>
       {openForm && (
-        <div className="form-modal" role="dialog" aria-modal="true" aria-label={openForm.title}>
+        <div className={`form-modal${isFormClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={openForm.title}>
           <div className="form-modal-bar">
             <h2>{openForm.title}</h2>
-            <button className="icon-button" onClick={() => setOpenForm(null)} title="Закрыть">
+            <button className="icon-button" onClick={closeFormModal} title="Закрыть">
               <X size={20} />
             </button>
           </div>
@@ -608,16 +649,20 @@ function FormsView({ tabs }: { tabs: FormTab[] }) {
 function DocsView({ sections }: { sections: DocsSection[] }) {
   const [activeSection, setActiveSection] = useState("all");
   const [query, setQuery] = useState("");
+  const [openLinkDocument, setOpenLinkDocument] = useState<DocItem | null>(null);
+  const [isLinkDocumentClosing, setIsLinkDocumentClosing] = useState(false);
   const virtualSections: DocsSection[] = useMemo(() => {
-    const allDocs = sections.flatMap((section) => section.docs);
+    const visibleSections = sections.filter((section) => section.docs.length > 0);
+    const allDocs = visibleSections.flatMap((section) => section.docs);
+    if (!allDocs.length) return [];
     return [
       { id: "all", title: "Все", audience: "public", docs: allDocs },
-      ...sections,
+      ...visibleSections,
     ];
   }, [sections]);
   const currentSection = virtualSections.find((section) => section.id === activeSection) ?? virtualSections[0];
   const normalizedQuery = query.trim().toLowerCase();
-  const filteredDocs = currentSection.docs.filter((doc) => {
+  const filteredDocs = (currentSection?.docs ?? []).filter((doc) => {
     if (!normalizedQuery) return true;
     return [doc.title, doc.description, doc.content].some((value) => value.toLowerCase().includes(normalizedQuery));
   });
@@ -627,6 +672,20 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
       setActiveSection("all");
     }
   }, [activeSection, virtualSections]);
+
+  function openLinkDocumentModal(doc: DocItem) {
+    setIsLinkDocumentClosing(false);
+    setOpenLinkDocument(doc);
+  }
+
+  function closeLinkDocumentModal() {
+    if (isLinkDocumentClosing) return;
+    setIsLinkDocumentClosing(true);
+    window.setTimeout(() => {
+      setOpenLinkDocument(null);
+      setIsLinkDocumentClosing(false);
+    }, 160);
+  }
 
   if (!currentSection) return <div className="empty">Документация пока не добавлена</div>;
 
@@ -647,13 +706,39 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
         <div className="docs-list">
           {filteredDocs.length === 0 && <div className="empty">{query ? "Документы не найдены" : "В разделе пока нет документов"}</div>}
           {filteredDocs.map((doc) => (
-            <a key={doc.id} className="doc-link-card" href={`#/docs/${doc.id}`}>
-              <strong>{doc.title}</strong>
-              {doc.description && <small>{doc.description}</small>}
-            </a>
+            doc.document_type === "link" ? (
+              <div key={doc.id} className="external-doc-card">
+                <button className="external-doc-main" type="button" onClick={() => openLinkDocumentModal(doc)}>
+                  <strong>{doc.title}</strong>
+                  <small>Внешний документ{doc.description ? ` · ${doc.description}` : ""}</small>
+                </button>
+                <a className="external-doc-open" href={doc.url} target="_blank" rel="noreferrer" aria-label={`Открыть «${doc.title}» в новой вкладке`} title="Открыть в новой вкладке">
+                  <ExternalLink size={16} />
+                </a>
+              </div>
+            ) : (
+              <a key={doc.id} className="doc-link-card" href={`#/docs/${doc.id}`}>
+                <strong>{doc.title}</strong>
+                {doc.description && <small>{doc.description}</small>}
+              </a>
+            )
           ))}
         </div>
       </aside>
+      {openLinkDocument && (
+        <div className={`form-modal${isLinkDocumentClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={openLinkDocument.title}>
+          <div className="form-modal-bar">
+            <h2>{openLinkDocument.title}</h2>
+            <div className="modal-actions">
+              <a className="secondary-button compact-link" href={openLinkDocument.url} target="_blank" rel="noreferrer">Открыть <ExternalLink size={14} /></a>
+              <button className="icon-button" onClick={closeLinkDocumentModal} title="Закрыть"><X size={20} /></button>
+            </div>
+          </div>
+          <iframe src={openLinkDocument.url} title={openLinkDocument.title} sandbox="allow-forms allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer">
+            Загрузка...
+          </iframe>
+        </div>
+      )}
     </section>
   );
 }
@@ -692,9 +777,16 @@ function DocPage({ docId }: { docId: string }) {
               <h2>{doc.title}</h2>
               {doc.description && <p>{doc.description}</p>}
             </div>
-            <MarkdownWithOutline content={doc.content} />
+            {doc.document_type === "link" ? (
+              <>
+                <a className="ghost-link document-external-link" href={doc.url} target="_blank" rel="noreferrer">Открыть в новой вкладке <ExternalLink size={16} /></a>
+                <iframe className="document-link-frame" src={doc.url} title={doc.title} sandbox="allow-forms allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer">
+                  Загрузка...
+                </iframe>
+              </>
+            ) : <MarkdownWithOutline content={doc.content} />}
           </article>
-          <DocumentOutline content={doc.content} />
+          {doc.document_type !== "link" && <DocumentOutline content={doc.content} />}
         </div>
       )}
     </main>
@@ -745,6 +837,8 @@ function DocEditPage({ docId }: { docId: string }) {
           title: doc.title,
           section_id: doc.section_id,
           audience: doc.audience,
+          document_type: doc.document_type,
+          url: doc.url || "",
           content: doc.content,
           description: doc.description,
           active: doc.active,
@@ -789,7 +883,7 @@ function DocEditPage({ docId }: { docId: string }) {
             <div className="editor-pane">
               <DocEditorFields docDraft={docDraft} setDocDraft={setDocDraft} docsStore={docsStore} accessGroups={docAccessRules.groups} />
               <div className="form-actions">
-                <button disabled={saving || !docDraft.title.trim() || !docDraft.section_id}>{saving ? "Сохранение..." : "Сохранить"}</button>
+                <button disabled={saving || !docDraft.title.trim() || !docDraft.section_id || (docDraft.document_type === "link" && !docDraft.url.trim())}>{saving ? "Сохранение..." : "Сохранить"}</button>
                 <a className="secondary-button row-link-button" href={`#/docs/${docId}`}>К документу</a>
                 {savedMessage && <small>{savedMessage}</small>}
               </div>
@@ -800,7 +894,9 @@ function DocEditPage({ docId }: { docId: string }) {
                 <h2>{docDraft.title || "Без названия"}</h2>
                 {docDraft.description && <p>{docDraft.description}</p>}
               </div>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{docDraft.content || "_Документ пустой._"}</ReactMarkdown>
+              {docDraft.document_type === "link" ? (
+                <p>{docDraft.url || "Укажите ссылку на внешний документ."}</p>
+              ) : <ReactMarkdown remarkPlugins={[remarkGfm]}>{docDraft.content || "_Документ пустой._"}</ReactMarkdown>}
             </article>
           </section>
         </form>
@@ -1069,15 +1165,23 @@ function DocEditorFields({
           <option value="admin">Админы</option>
         </select>
       </div>
-      <MarkdownEditorTextarea
-        value={docDraft.content}
-        setValue={(next) =>
-          setDocDraft((current) => ({
-            ...current,
-            content: typeof next === "function" ? next(current.content) : next,
-          }))
-        }
-      />
+      <select value={docDraft.document_type} onChange={(event) => setDocDraft({ ...docDraft, document_type: event.target.value as "page" | "link" })}>
+        <option value="page">Обычный документ</option>
+        <option value="link">Внешняя ссылка</option>
+      </select>
+      {docDraft.document_type === "link" ? (
+        <input type="url" value={docDraft.url} onChange={(event) => setDocDraft({ ...docDraft, url: event.target.value })} placeholder="https://example.com/документ" />
+      ) : (
+        <MarkdownEditorTextarea
+          value={docDraft.content}
+          setValue={(next) =>
+            setDocDraft((current) => ({
+              ...current,
+              content: typeof next === "function" ? next(current.content) : next,
+            }))
+          }
+        />
+      )}
     </>
   );
 }
@@ -1104,6 +1208,8 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     title: "",
     section_id: "",
     audience: "public",
+    document_type: "page",
+    url: "",
     content: "",
     description: "",
     active: true,
@@ -1482,7 +1588,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
                     {section.docs.length === 0 && <p className="admin-empty-row">Документов пока нет</p>}
                     {section.docs.map((doc) => (
                       <div className="admin-form-row" key={doc.id}>
-                        <span>{doc.title} <small>{audienceLabel(doc.audience, docAccessRules.groups)}</small></span>
+                        <span>{doc.title} <small>{doc.document_type === "link" ? "Внешняя ссылка · " : ""}{audienceLabel(doc.audience, docAccessRules.groups)}</small></span>
                         <div className="row-actions">
                           <button className="secondary-button" onClick={() => moveDoc(doc.id, "up")} title="Выше">↑</button>
                           <button className="secondary-button" onClick={() => moveDoc(doc.id, "down")} title="Ниже">↓</button>
@@ -1502,7 +1608,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
           <form className="admin-form docs-editor-form" onSubmit={saveDoc}>
             <h3>Новый документ</h3>
             <DocEditorFields docDraft={docDraft} setDocDraft={setDocDraft} docsStore={docsStore} accessGroups={docAccessRules.groups} />
-            <button disabled={!docDraft.title.trim() || !docDraft.section_id}>Добавить документ</button>
+            <button disabled={!docDraft.title.trim() || !docDraft.section_id || (docDraft.document_type === "link" && !docDraft.url.trim())}>Добавить документ</button>
           </form>
         )}
       </section>
@@ -1625,6 +1731,8 @@ export function App() {
   const [route, setRoute] = useState(window.location.hash || "#/");
   const [session, setSession] = useState<Session | null>(storageSession);
   const [view, setView] = useState<View>("me");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] = useState(false);
   const [soldiers, setSoldiers] = useState<Soldier[]>([]);
   const [forms, setForms] = useState<FormTab[]>([]);
   const [docs, setDocs] = useState<DocsSection[]>([]);
@@ -1697,8 +1805,19 @@ export function App() {
     try {
       await api.logout();
     } finally {
+      setIsLogoutConfirmationOpen(false);
       setSession(null);
     }
+  }
+
+  function requestLogout() {
+    setIsMobileMenuOpen(false);
+    setIsLogoutConfirmationOpen(true);
+  }
+
+  function selectView(nextView: View) {
+    setView(nextView);
+    setIsMobileMenuOpen(false);
   }
 
   if (session?.requires_discord_verification) {
@@ -1741,28 +1860,69 @@ export function App() {
   }
 
   return (
-    <main className="shell">
+    <main className={`shell${isMobileMenuOpen ? " mobile-menu-open" : ""}`}>
       <header className="topbar">
         <div>
           <p className="eyebrow">327 Star Corp</p>
           <h1>Батальонный архив</h1>
         </div>
-        <div className="top-actions">
+        <div className="top-actions desktop-actions">
           <a className="ghost-link" href="#/">Главная</a>
           {session.is_admin && <a className="ghost-link" href="#/ghost-admin"><Shield size={16} /> Админка</a>}
-          <button className="icon-button" onClick={logout} title="Выйти"><LogOut size={18} /></button>
+          <button className="icon-button" onClick={requestLogout} title="Выйти"><LogOut size={18} /></button>
         </div>
+        <button
+          className="icon-button mobile-menu-toggle"
+          type="button"
+          onClick={() => setIsMobileMenuOpen((open) => !open)}
+          aria-label={isMobileMenuOpen ? "Закрыть меню" : "Открыть меню"}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="archive-mobile-menu"
+        >
+          {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </header>
-      <nav className="nav">
-        <button className={view === "me" ? "active" : ""} onClick={() => setView("me")}><UserRound size={18} /> Мой профиль</button>
-        <button className={view === "profiles" ? "active" : ""} onClick={() => setView("profiles")}><UsersRound size={18} /> Профили</button>
-        <button className={view === "forms" ? "active" : ""} onClick={() => setView("forms")}><ClipboardList size={18} /> Формы</button>
-        <button className={view === "docs" ? "active" : ""} onClick={() => setView("docs")}><BookOpenText size={18} /> Документация</button>
+      <nav className="nav desktop-nav">
+        <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
+        <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
+        <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
+        <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
       </nav>
-      {view === "me" && <ProfileCard profile={currentProfile} />}
-      {view === "profiles" && <ProfilesView soldiers={soldiers} />}
-      {view === "forms" && <FormsView tabs={forms} />}
-      {view === "docs" && <DocsView sections={docs} />}
+      {isMobileMenuOpen && (
+        <nav className="mobile-menu" id="archive-mobile-menu" aria-label="Навигация по архиву">
+          <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
+          <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
+          <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
+          <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
+          <div className="mobile-menu-divider" aria-hidden="true" />
+          <a href="#/" onClick={() => setIsMobileMenuOpen(false)}>Главная</a>
+          {session.is_admin && <a href="#/ghost-admin" onClick={() => setIsMobileMenuOpen(false)}><Shield size={18} /> Админка</a>}
+          <button className="mobile-logout" onClick={requestLogout}><LogOut size={18} /> Выйти</button>
+        </nav>
+      )}
+      <div className="mobile-menu-content">
+        {view === "me" && <ProfileCard profile={currentProfile} />}
+        {view === "profiles" && <ProfilesView soldiers={soldiers} />}
+        {view === "forms" && <FormsView tabs={forms} />}
+        {view === "docs" && <DocsView sections={docs} />}
+      </div>
+      {isLogoutConfirmationOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsLogoutConfirmationOpen(false)}>
+          <section className="access-modal logout-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-confirmation-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="form-modal-bar">
+              <h2 id="logout-confirmation-title">Выйти из аккаунта?</h2>
+              <button className="icon-button secondary-button" onClick={() => setIsLogoutConfirmationOpen(false)} aria-label="Закрыть подтверждение"><X size={18} /></button>
+            </div>
+            <div className="access-modal-body">
+              <p>Для повторного входа потребуется авторизация.</p>
+              <div className="form-actions">
+                <button className="secondary-button" onClick={() => setIsLogoutConfirmationOpen(false)}>Отмена</button>
+                <button className="danger-button" onClick={logout}><LogOut size={18} /> Выйти</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
