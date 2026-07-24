@@ -2249,8 +2249,8 @@ export function App() {
       </header>
       <nav className="nav desktop-nav">
         <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
-        <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
         <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
+        <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
         <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
         <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
         <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
@@ -2258,8 +2258,8 @@ export function App() {
       {isMobileMenuOpen && (
         <nav className="mobile-menu" id="archive-mobile-menu" aria-label="Навигация по архиву">
           <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
-          <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
           <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
+          <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
           <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
           <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
           <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
