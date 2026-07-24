@@ -10,8 +10,8 @@ from googleapiclient.errors import HttpError
 from sqlalchemy import delete, func, insert, select
 
 from app.config import get_settings
-from app.repositories.database import db_session, equipment_sheet_cache, soldiers_cache
-from app.schemas.models import EquipmentItem, EquipmentResponse, Soldier
+from app.repositories.database import competencies_sheet_cache, db_session, equipment_sheet_cache, soldiers_cache
+from app.schemas.models import CompetenciesResponse, CompetencyItem, EquipmentItem, EquipmentResponse, Soldier
 
 
 HEADER_ALIASES = {
@@ -333,6 +333,60 @@ async def sync_equipment_from_sheet() -> int:
         db.execute(delete(equipment_sheet_cache).where(equipment_sheet_cache.c.id == 1))
         db.execute(insert(equipment_sheet_cache).values(id=1, rows=rows, synced_at=datetime.utcnow()))
     return len(rows)
+
+
+def fetch_cached_competencies_rows() -> list[list[Any]]:
+    with db_session() as db:
+        row = db.execute(select(competencies_sheet_cache.c.rows).where(competencies_sheet_cache.c.id == 1)).scalar_one_or_none()
+    return row if isinstance(row, list) else []
+
+
+def has_cached_competencies() -> bool:
+    with db_session() as db:
+        return db.execute(select(competencies_sheet_cache.c.id).where(competencies_sheet_cache.c.id == 1)).scalar_one_or_none() is not None
+
+
+async def sync_competencies_from_sheet() -> int:
+    rows = await asyncio.to_thread(_fetch_sheet_rows_for_gid, get_settings().google_competencies_sheet_gid)
+    with db_session() as db:
+        db.execute(delete(competencies_sheet_cache).where(competencies_sheet_cache.c.id == 1))
+        db.execute(insert(competencies_sheet_cache).values(id=1, rows=rows, synced_at=datetime.utcnow()))
+    return len(rows)
+
+
+def _competency_row(rows: list[list[Any]], nickname_column: int, nickname: str) -> list[Any] | None:
+    normalized_nickname = _clean_value(nickname).casefold()
+    return next((row for row in rows[3:] if _cell(row, nickname_column).casefold() == normalized_nickname), None)
+
+
+async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse:
+    rows = fetch_cached_competencies_rows()
+    if not rows:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Лист компетенций ещё не загружен")
+
+    headings = rows[1] if len(rows) > 1 else []
+    labels = rows[2] if len(rows) > 2 else []
+    attestation_row = _competency_row(rows, 1, soldier.nickname)
+    tech_row = _competency_row(rows, 34, soldier.nickname)
+
+    attestations: list[CompetencyItem] = []
+    if attestation_row:
+        current_group = ""
+        for index in range(5, 33):
+            current_group = _cell(headings, index) or current_group
+            title = _cell(labels, index)
+            if title and _cell(attestation_row, index) == "1":
+                attestations.append(CompetencyItem(title=title, group=current_group))
+
+    tech_access: list[CompetencyItem] = []
+    if tech_row:
+        current_group = ""
+        for index in range(37, 48):
+            current_group = _cell(headings, index) or current_group
+            title = _cell(labels, index)
+            if title and _cell(tech_row, index) == "1":
+                tech_access.append(CompetencyItem(title=title, group=current_group))
+    return CompetenciesResponse(attestations=attestations, tech_access=tech_access)
 
 
 def _soldier_from_cache(row: dict[str, Any]) -> Soldier:

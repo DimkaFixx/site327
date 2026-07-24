@@ -33,6 +33,16 @@ class EquipmentResponse(BaseModel):
     medicine: list[EquipmentItem] = Field(default_factory=list)
 
 
+class CompetencyItem(BaseModel):
+    title: str
+    group: str = ""
+
+
+class CompetenciesResponse(BaseModel):
+    attestations: list[CompetencyItem] = Field(default_factory=list)
+    tech_access: list[CompetencyItem] = Field(default_factory=list)
+
+
 class LoginRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=80)
     password: str | None = Field(default=None, min_length=4, max_length=120)

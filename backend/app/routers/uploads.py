@@ -3,10 +3,10 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.config import get_settings
 from app.repositories.home_store import home_page_references_upload
@@ -63,12 +63,12 @@ async def hosted_photo(filename: str) -> FileResponse:
 async def admin_list_hosted_photos(request: Request) -> list[dict[str, str]]:
     require_admin(request)
     with db_session() as db:
-        rows = db.execute(select(photo_host_images.c.filename, photo_host_images.c.created_at).order_by(photo_host_images.c.created_at.desc())).mappings().all()
-    return [{"filename": row["filename"], "url": f"/api/photo-host/{row['filename']}", "created_at": row["created_at"].isoformat()} for row in rows]
+        rows = db.execute(select(photo_host_images.c.filename, photo_host_images.c.title, photo_host_images.c.created_at).order_by(photo_host_images.c.created_at.desc())).mappings().all()
+    return [{"filename": row["filename"], "title": row["title"], "url": f"/api/photo-host/{row['filename']}", "created_at": row["created_at"].isoformat()} for row in rows]
 
 
 @router.post("/admin/photo-host")
-async def admin_upload_hosted_photo(request: Request, file: UploadFile = File(...)) -> dict[str, str]:
+async def admin_upload_hosted_photo(request: Request, file: UploadFile = File(...), title: str = Form("")) -> dict[str, str]:
     require_admin(request)
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Можно загружать только изображения")
@@ -97,9 +97,22 @@ async def admin_upload_hosted_photo(request: Request, file: UploadFile = File(..
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(output.getvalue())
     with db_session() as db:
-        db.execute(photo_host_images.insert().values(filename=filename))
+        db.execute(photo_host_images.insert().values(filename=filename, title=title.strip()[:160]))
     log_admin_event(request, "upload_hosted_photo", filename)
-    return {"filename": filename, "url": f"/api/photo-host/{filename}"}
+    return {"filename": filename, "title": title.strip()[:160], "url": f"/api/photo-host/{filename}"}
+
+
+@router.patch("/admin/photo-host/{filename}")
+async def admin_update_hosted_photo(filename: str, payload: dict[str, str], request: Request) -> dict[str, str]:
+    require_admin(request)
+    _photo_host_path(filename)
+    title = str(payload.get("title", "")).strip()[:160]
+    with db_session() as db:
+        updated = db.execute(update(photo_host_images).where(photo_host_images.c.filename == filename).values(title=title)).rowcount > 0
+    if not updated:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Изображение не найдено")
+    log_admin_event(request, "rename_hosted_photo", filename, {"title": title})
+    return {"filename": filename, "title": title, "url": f"/api/photo-host/{filename}"}
 
 
 @router.delete("/admin/photo-host/{filename}")

@@ -1,4 +1,4 @@
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -137,6 +137,7 @@ export const api = {
   home: () => request<HomePage>("/api/home"),
   soldiers: () => request<Soldier[]>("/api/soldiers"),
   equipment: () => request<EquipmentResponse>("/api/equipment"),
+  competencies: () => request<CompetenciesResponse>("/api/competencies"),
   forms: () => request<FormTab[]>("/api/forms"),
   docs: () => request<DocsSection[]>("/api/docs"),
   docsSettings: () => request<MarkdownSettings>("/api/docs-settings"),
@@ -176,13 +177,14 @@ export const api = {
   deleteVerificationCodes: (nickname: string) =>
     request<{ deleted: number }>(`/api/admin/verification-codes/${encodeURIComponent(nickname)}`, { method: "DELETE" }),
   adminAudit: () => request<AuditEventItem[]>("/api/admin/audit"),
-  syncSoldiersAndEquipment: () => request<{ soldiers: number; equipment_rows: number }>("/api/admin/soldiers-sync", { method: "POST" }),
+  syncSoldiersAndEquipment: () => request<{ soldiers: number; equipment_rows: number; competencies_rows: number }>("/api/admin/soldiers-sync", { method: "POST" }),
   hostedPhotos: () => request<HostedPhoto[]>("/api/admin/photo-host"),
   uploadHostedPhoto: (file: File) => {
     const body = new FormData();
     body.append("file", file);
     return uploadRequest<HostedPhoto>("/api/admin/photo-host", body);
   },
+  updateHostedPhoto: (filename: string, title: string) => request<HostedPhoto>(`/api/admin/photo-host/${encodeURIComponent(filename)}`, { method: "PATCH", body: JSON.stringify({ title }) }),
   deleteHostedPhoto: (filename: string) => request<{ deleted: boolean }>(`/api/admin/photo-host/${encodeURIComponent(filename)}`, { method: "DELETE" }),
   updateHome: (payload: HomePage) =>
     request<HomePage>("/api/admin/home", {

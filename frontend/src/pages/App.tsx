@@ -1,12 +1,12 @@
-import { BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, Trash2, UserRound, UsersRound, X } from "lucide-react";
+import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, Trash2, UserRound, UsersRound, X } from "lucide-react";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
-type View = "me" | "equipment" | "profiles" | "forms" | "docs";
+type View = "me" | "equipment" | "competencies" | "profiles" | "forms" | "docs";
 type FormsAdminSheet = "view" | "create" | "edit";
 type DocsAdminSheet = "view" | "create";
 
@@ -646,6 +646,47 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
           </section>
         </div>
       )}
+    </section>
+  );
+}
+
+function CompetenciesView({ competencies, error }: { competencies: CompetenciesResponse | null; error: string }) {
+  if (!competencies) return <div className="empty">{error || "Загрузка компетенций..."}</div>;
+  const groups = (items: CompetenciesResponse["attestations"]) => {
+    const result = new Map<string, string[]>();
+    for (const item of items) {
+      const group = item.group || "Аттестации";
+      result.set(group, [...(result.get(group) || []), item.title]);
+    }
+    return [...result.entries()];
+  };
+  const attestationGroups = groups(competencies.attestations);
+  const techGroups = groups(competencies.tech_access);
+  return (
+    <section className="competencies-view">
+      <div className="document-header">
+        <span>Личный лист</span>
+        <h2>Мои компетенции</h2>
+        <p>Аттестации и допуски, отмеченные за вами в батальонном листе.</p>
+      </div>
+      <section className="competencies-section">
+        <h3>Аттестации</h3>
+        {attestationGroups.length === 0 ? <div className="empty">Аттестации пока не указаны.</div> : attestationGroups.map(([group, items]) => (
+          <div className="competency-group" key={group}>
+            {group && <p className="competency-group-title">{group}</p>}
+            <div className="competency-chips">{items.map((item) => <span key={item}><Check size={15} />{item}</span>)}</div>
+          </div>
+        ))}
+      </section>
+      <section className="competencies-section">
+        <h3>Доступ к технике</h3>
+        {techGroups.length === 0 ? <div className="empty">Допуски к технике пока не указаны.</div> : techGroups.map(([group, items]) => (
+          <div className="competency-group" key={group}>
+            {group && <p className="competency-group-title">{group}</p>}
+            <div className="competency-chips">{items.map((item) => <span key={item}><BadgeCheck size={15} />{item}</span>)}</div>
+          </div>
+        ))}
+      </section>
     </section>
   );
 }
@@ -1398,7 +1439,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     try {
       const result = await api.syncSoldiersAndEquipment();
       await refresh();
-      setSyncMessage(`Обновлено: состав — ${result.soldiers}, строк регламента — ${result.equipment_rows}.`);
+      setSyncMessage(`Обновлено: состав — ${result.soldiers}, снаряжение — ${result.equipment_rows} строк, компетенции — ${result.competencies_rows} строк.`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Не удалось обновить данные из Google Sheets");
     } finally {
@@ -1970,6 +2011,17 @@ function PhotoHostPage() {
     }
   }
 
+  async function renamePhoto(photo: HostedPhoto, title: string) {
+    const nextTitle = title.trim();
+    if (nextTitle === photo.title) return;
+    try {
+      const updated = await api.updateHostedPhoto(photo.filename, nextTitle);
+      setPhotos((items) => items.map((item) => item.filename === photo.filename ? updated : item));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось сохранить название");
+    }
+  }
+
   return (
     <main className="shell photo-host-page">
       <header className="topbar">
@@ -2003,7 +2055,8 @@ function PhotoHostPage() {
         {photos.length === 0 && <div className="empty">Изображений пока нет.</div>}
         {photos.map((photo) => (
           <article className="hosted-photo-card" key={photo.filename}>
-            <img src={photo.url} alt="Загруженное изображение" />
+            <img src={photo.url} alt={photo.title || "Загруженное изображение"} />
+            <input className="hosted-photo-title" defaultValue={photo.title} placeholder="Название изображения" maxLength={160} onBlur={(event) => void renamePhoto(photo, event.target.value)} />
             <div className="hosted-photo-actions">
               <button className="secondary-button" onClick={() => void copyUrl(photo)}><Copy size={16} /> {copiedFilename === photo.filename ? "Скопировано" : "Копировать ссылку"}</button>
               <button className="danger-button icon-button" onClick={() => void removePhoto(photo)} title="Удалить изображение"><Trash2 size={17} /></button>
@@ -2024,6 +2077,8 @@ export function App() {
   const [soldiers, setSoldiers] = useState<Soldier[]>([]);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
   const [equipmentError, setEquipmentError] = useState("");
+  const [competencies, setCompetencies] = useState<CompetenciesResponse | null>(null);
+  const [competenciesError, setCompetenciesError] = useState("");
   const [forms, setForms] = useState<FormTab[]>([]);
   const [docs, setDocs] = useState<DocsSection[]>([]);
   const isAdminRoute = route === "#/ghost-admin";
@@ -2094,6 +2149,13 @@ export function App() {
     }).catch((error) => {
       setEquipment(null);
       setEquipmentError(error instanceof Error ? error.message : "Не удалось загрузить регламент снаряжения");
+    });
+    api.competencies().then((result) => {
+      setCompetencies(result);
+      setCompetenciesError("");
+    }).catch((error) => {
+      setCompetencies(null);
+      setCompetenciesError(error instanceof Error ? error.message : "Не удалось загрузить компетенции");
     });
   }, [session, isArchiveRoute, isAdminRoute, isHomeEditRoute, docRouteId, docEditRouteId]);
 
@@ -2187,6 +2249,7 @@ export function App() {
       </header>
       <nav className="nav desktop-nav">
         <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
+        <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
         <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
         <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
         <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
@@ -2195,6 +2258,7 @@ export function App() {
       {isMobileMenuOpen && (
         <nav className="mobile-menu" id="archive-mobile-menu" aria-label="Навигация по архиву">
           <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
+          <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
           <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
           <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
           <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
@@ -2208,6 +2272,7 @@ export function App() {
       <div className="mobile-menu-content">
         {view === "me" && <ProfileCard profile={currentProfile} />}
         {view === "equipment" && <EquipmentView equipment={equipment} error={equipmentError} />}
+        {view === "competencies" && <CompetenciesView competencies={competencies} error={competenciesError} />}
         {view === "profiles" && <ProfilesView soldiers={soldiers} />}
         {view === "forms" && <FormsView tabs={forms} />}
         {view === "docs" && <DocsView sections={docs} />}

@@ -50,8 +50,19 @@ export type EquipmentResponse = {
   medicine: EquipmentItem[];
 };
 
+export type CompetencyItem = {
+  title: string;
+  group: string;
+};
+
+export type CompetenciesResponse = {
+  attestations: CompetencyItem[];
+  tech_access: CompetencyItem[];
+};
+
 export type HostedPhoto = {
   filename: string;
+  title: string;
   url: string;
   created_at: string;
 };

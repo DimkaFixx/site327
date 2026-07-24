@@ -309,6 +309,61 @@ button:disabled {
   animation: surface-enter 220ms ease-out both;
 }
 
+.competencies-view {
+  display: grid;
+  gap: 18px;
+  animation: surface-enter 220ms ease-out both;
+}
+
+.competencies-section {
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.competencies-section h3 {
+  margin: 0 0 14px;
+  color: var(--accent-soft);
+}
+
+.competency-group + .competency-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.competency-group-title {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.competency-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.competency-chips span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.competency-chips svg {
+  color: var(--accent);
+}
+
 .equipment-regulation,
 .medicine-section {
   padding: 20px 24px;
@@ -459,6 +514,13 @@ button:disabled {
   height: 180px;
   object-fit: contain;
   background: rgba(0, 0, 0, 0.18);
+}
+
+.hosted-photo-title {
+  margin: 10px 10px 0;
+  width: calc(100% - 20px);
+  padding: 8px 10px;
+  font-size: 14px;
 }
 
 .hosted-photo-actions {
