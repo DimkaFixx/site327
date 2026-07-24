@@ -187,6 +187,7 @@ class MarkdownSettings(BaseModel):
     h1_font_size: int = Field(default=38, ge=24, le=64)
     h2_font_size: int = Field(default=34, ge=20, le=56)
     h3_font_size: int = Field(default=26, ge=18, le=48)
+    code_font_size: int = Field(default=14, ge=10, le=24)
     paragraph_spacing: int = Field(default=16, ge=6, le=32)
     heading_margin_top: int = Field(default=28, ge=8, le=64)
     heading_margin_bottom: int = Field(default=14, ge=4, le=40)

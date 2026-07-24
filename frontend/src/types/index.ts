@@ -78,6 +78,7 @@ export type MarkdownSettings = {
   h1_font_size: number;
   h2_font_size: number;
   h3_font_size: number;
+  code_font_size: number;
   paragraph_spacing: number;
   heading_margin_top: number;
   heading_margin_bottom: number;

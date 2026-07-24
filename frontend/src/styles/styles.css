@@ -792,14 +792,44 @@ summary {
   background: var(--panel-soft);
   border-radius: 6px;
   padding: 2px 6px;
+  font-size: var(--markdown-code-size, 14px);
 }
 
 .markdown-document pre {
   overflow: auto;
+  margin: 0;
   padding: 14px;
   background: #171207;
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+
+.markdown-code-container {
+  display: grid;
+  justify-items: start;
+  margin: 18px 0;
+}
+
+.markdown-document pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+}
+
+.copy-code-button {
+  margin-top: 6px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px;
+  color: var(--accent-soft);
+  font-size: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+}
+
+.copy-code-button:hover {
+  color: #1f1704;
+  background: var(--accent);
 }
 
 .form-card {

@@ -1,5 +1,5 @@
-import { BookOpenText, ClipboardList, ExternalLink, LogOut, Menu, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BookOpenText, Check, ClipboardList, Copy, ExternalLink, LogOut, Menu, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,6 +17,7 @@ const defaultMarkdownSettings: MarkdownSettings = {
   h1_font_size: 38,
   h2_font_size: 34,
   h3_font_size: 26,
+  code_font_size: 14,
   paragraph_spacing: 16,
   heading_margin_top: 28,
   heading_margin_bottom: 14,
@@ -30,6 +31,7 @@ function markdownSettingsStyle(settings: MarkdownSettings): React.CSSProperties 
     "--markdown-h1-size": `${settings.h1_font_size}px`,
     "--markdown-h2-size": `${settings.h2_font_size}px`,
     "--markdown-h3-size": `${settings.h3_font_size}px`,
+    "--markdown-code-size": `${settings.code_font_size}px`,
     "--markdown-paragraph-spacing": `${settings.paragraph_spacing}px`,
     "--markdown-heading-margin-top": `${settings.heading_margin_top}px`,
     "--markdown-heading-margin-bottom": `${settings.heading_margin_bottom}px`,
@@ -126,6 +128,41 @@ function MarkdownHeading({ level, headingIdsByLine, node, children, ...props }: 
   return <h6 id={id} {...props}>{children}</h6>;
 }
 
+function MarkdownCode({ children, className, node: _node, ...props }: ComponentPropsWithoutRef<"code"> & { children?: ReactNode; node?: unknown }) {
+  return <code className={className} {...props}>{children}</code>;
+}
+
+function markdownNodeText(value: ReactNode): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(markdownNodeText).join("");
+  if (React.isValidElement(value)) return markdownNodeText((value.props as { children?: ReactNode }).children);
+  return "";
+}
+
+function MarkdownPre({ children, node: _node, ...props }: ComponentPropsWithoutRef<"pre"> & { children?: ReactNode; node?: unknown }) {
+  const [copied, setCopied] = useState(false);
+  const code = markdownNodeText(children).replace(/\n$/, "");
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_400);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="markdown-code-container">
+      <pre {...props}>{children}</pre>
+      <button className="copy-code-button" type="button" onClick={copyCode} title="Скопировать код" aria-label="Скопировать код">
+        {copied ? <Check size={15} /> : <Copy size={15} />}
+      </button>
+    </div>
+  );
+}
+
 function MarkdownWithOutline({ content }: { content: string }) {
   const outline = useMemo(() => extractDocumentOutline(content), [content]);
   const headingIdsByLine = useMemo(() => new Map(outline.map((item) => [item.line, item.id])), [outline]);
@@ -137,6 +174,8 @@ function MarkdownWithOutline({ content }: { content: string }) {
       h4: (props: MarkdownHeadingProps) => <MarkdownHeading level={4} headingIdsByLine={headingIdsByLine} {...props} />,
       h5: (props: MarkdownHeadingProps) => <MarkdownHeading level={5} headingIdsByLine={headingIdsByLine} {...props} />,
       h6: (props: MarkdownHeadingProps) => <MarkdownHeading level={6} headingIdsByLine={headingIdsByLine} {...props} />,
+      code: MarkdownCode,
+      pre: MarkdownPre,
     }),
     [headingIdsByLine],
   );
@@ -333,7 +372,7 @@ function HomeScreen({ session }: { session: Session | null }) {
       {!error && !page && <div className="empty">Загрузка главной...</div>}
       {page && (
         <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: MarkdownCode, pre: MarkdownPre }}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
         </article>
       )}
     </main>
@@ -1682,6 +1721,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
               <label>Размер заголовка H1, px<input type="number" min="24" max="64" value={markdownSettings.h1_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, h1_font_size: Number(event.target.value) })} /></label>
               <label>Размер заголовка H2, px<input type="number" min="20" max="56" value={markdownSettings.h2_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, h2_font_size: Number(event.target.value) })} /></label>
               <label>Размер заголовка H3, px<input type="number" min="18" max="48" value={markdownSettings.h3_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, h3_font_size: Number(event.target.value) })} /></label>
+              <label>Размер кода, px<input type="number" min="10" max="24" value={markdownSettings.code_font_size} onChange={(event) => setMarkdownSettings({ ...markdownSettings, code_font_size: Number(event.target.value) })} /></label>
               <label>Отступ между абзацами, px<input type="number" min="6" max="32" value={markdownSettings.paragraph_spacing} onChange={(event) => setMarkdownSettings({ ...markdownSettings, paragraph_spacing: Number(event.target.value) })} /></label>
               <label>Отступ над заголовком, px<input type="number" min="8" max="64" value={markdownSettings.heading_margin_top} onChange={(event) => setMarkdownSettings({ ...markdownSettings, heading_margin_top: Number(event.target.value) })} /></label>
               <label>Отступ под заголовком, px<input type="number" min="4" max="40" value={markdownSettings.heading_margin_bottom} onChange={(event) => setMarkdownSettings({ ...markdownSettings, heading_margin_bottom: Number(event.target.value) })} /></label>
