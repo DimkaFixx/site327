@@ -114,8 +114,6 @@ engine = create_db_engine()
 def init_db() -> None:
     metadata.create_all(engine)
     with engine.begin() as connection:
-        connection.execute(text("DROP TABLE IF EXISTS equipment_sheet_cache"))
-        connection.execute(text("DROP TABLE IF EXISTS photo_host_images"))
         if engine.dialect.name == "sqlite":
             columns = {row[1] for row in connection.execute(text("PRAGMA table_info(users)"))}
             if "is_admin" not in columns:

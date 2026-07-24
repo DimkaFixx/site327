@@ -340,4 +340,3 @@ def seconds_until_next_sync(now: datetime | None = None) -> float:
             if candidate > current:
                 candidates.append(candidate)
     return (min(candidates) - current).total_seconds()
-    return None

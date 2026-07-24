@@ -607,6 +607,16 @@ button:disabled {
   grid-template-columns: minmax(130px, 0.28fr) minmax(110px, 0.2fr) 1fr auto;
 }
 
+.medicine-column-headings {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.28fr) minmax(110px, 0.2fr) 1fr auto;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .regulation-item textarea {
   min-height: 44px;
   resize: vertical;
@@ -762,13 +772,6 @@ summary {
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
-}
-
-.docs-layout {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 18px;
-  align-items: start;
 }
 
 .docs-catalog {
@@ -1447,24 +1450,6 @@ summary {
   color: var(--muted);
 }
 
-.access-rules-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.access-rule-card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  background: var(--panel-soft);
-  border-radius: 8px;
-}
-
-.access-rule-card textarea {
-  min-height: 124px;
-}
-
 .access-actions {
   grid-column: 1 / -1;
   display: flex;
@@ -1497,11 +1482,6 @@ summary {
 }
 
 .docs-admin-list {
-  max-height: 72vh;
-  overflow: auto;
-}
-
-.admin-doc-preview {
   max-height: 72vh;
   overflow: auto;
 }
@@ -1644,10 +1624,8 @@ summary {
   .inline-admin-form,
   .account-row,
   .admin-form-row,
-  .access-rules-grid,
   .access-group-card,
   .section-heading-row,
-  .docs-layout,
   .admin-docs-viewer,
   .docs-editor-row,
   .editor-split,
@@ -1657,6 +1635,10 @@ summary {
   .regulation-filters,
   .regulation-item {
     grid-template-columns: 1fr;
+  }
+
+  .medicine-column-headings {
+    display: none;
   }
 
   .section-heading-row,

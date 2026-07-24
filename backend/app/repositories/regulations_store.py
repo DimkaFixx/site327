@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 
 from app.config import get_settings
-from app.schemas.models import EquipmentItem, EquipmentResponse, ManualRegulation, RegulationsStore, Soldier
+from app.schemas.models import EquipmentResponse, ManualRegulation, RegulationsStore, Soldier
 from app.utils.file_store import read_text_locked, write_text_atomic
 
 

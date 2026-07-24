@@ -11,7 +11,7 @@ from app.services.auth import authenticate_login, build_login_response
 from app.services.discord import send_verification_code
 from app.services.sheets import find_soldier
 from app.utils.rate_limit import clear_rate_limit, client_ip, hit_rate_limit
-from app.utils.security import clear_auth_cookies, decode_token, get_session
+from app.utils.security import clear_auth_cookies, decode_token, get_session, verify_allowed_origin
 
 router = APIRouter(prefix="/api/auth")
 
@@ -75,6 +75,7 @@ async def _ensure_discord_code_sent(soldier) -> tuple[int, int, bool]:
 
 @router.post("/login", response_model=LoginResponse)
 async def login(payload: LoginRequest, request: Request, response: Response) -> LoginResponse:
+    verify_allowed_origin(request)
     ip = client_ip(request)
     nickname_key = f"login:{ip}:{payload.nickname.strip().casefold()}"
     hit_rate_limit(nickname_key)

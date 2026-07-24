@@ -1,5 +1,4 @@
 import asyncio
-import shutil
 from contextlib import suppress
 from pathlib import Path
 
@@ -31,7 +30,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def csrf_middleware(request, call_next):
-    csrf_exempt_paths = {"/api/auth/login", "/api/auth/refresh", "/api/auth/logout"}
+    csrf_exempt_paths = {"/api/auth/login"}
     if request.method in {"POST", "PATCH", "DELETE"} and request.url.path not in csrf_exempt_paths:
         verify_csrf(request)
     return await call_next(request)
@@ -50,7 +49,6 @@ app.include_router(admin.router)
 async def startup() -> None:
     global sync_task
     init_db()
-    shutil.rmtree(uploads_path / "photo-host", ignore_errors=True)
     if not has_cached_soldiers():
         with suppress(Exception):
             await sync_soldiers_from_sheet()

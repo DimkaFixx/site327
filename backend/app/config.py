@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     cookie_secure: bool
     cookie_samesite: str
     max_upload_bytes: int
+    max_upload_pixels: int = 20_000_000
     login_rate_limit_window_seconds: int
     login_rate_limit_max_attempts: int
     unknown_nickname_max_attempts: int

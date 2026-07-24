@@ -2018,8 +2018,25 @@ function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicin
     if (!text.includes("\t")) return;
     event.preventDefault();
     if (isMedicine) {
-      const rows = lines.map((line) => line.split("\t").map((cell) => cell.trim())).filter((row) => row.some(Boolean));
-      updateItems(rows.map((row) => ({ category: row[0] || "Пункт", amount: row[1] || "", value: row.slice(2).join("\t"), image_url: "" })));
+      const imported: EquipmentItem[] = [];
+      let current: EquipmentItem | null = null;
+      for (const line of lines) {
+        const cells = line.split("\t").map((cell) => cell.replaceAll('"', "").trim());
+        const hasImageColumn = cells.length >= 4 && (!cells[0] || /^=IMAGE\(|^https?:\/\//i.test(cells[0]));
+        const offset = hasImageColumn ? 1 : 0;
+        const category = cells[offset] || "";
+        const amount = cells[offset + 1] || "";
+        const note = cells.slice(offset + 2).join("\t").trim();
+        if (category && (cells.length >= offset + 2)) {
+          if (current) imported.push(current);
+          current = { category, amount, value: note, image_url: "" };
+        } else if (current) {
+          const continuation = cells.join("\t").trim();
+          if (continuation) current.value = `${current.value}${current.value ? "\n" : ""}${continuation}`;
+        }
+      }
+      if (current) imported.push(current);
+      if (imported.length) updateItems(imported);
       return;
     }
     const categoryKey = (value: string) => value.toLowerCase().replace(/[\s.]/g, "");
@@ -2083,6 +2100,7 @@ function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicin
       </>}
       <textarea className="regulation-paste-input" onPaste={pasteTable} placeholder={isMedicine ? "Вставьте из Google Sheets колонки: пункт, количество, описание" : "Вставьте из Google Sheets колонки: категория, содержимое"} />
       <p className="regulation-paste-hint">Нажмите Ctrl+V в это поле — строки сразу распределятся по пунктам. Для комплекта также поддерживается первый столбец с фото.</p>
+      {isMedicine && <div className="medicine-column-headings"><span>Пункт</span><span>Количество</span><span>Примечание</span><span /></div>}
       <div className="regulation-items">
         {regulation.items.map((item, index) => (
           <div className={`regulation-item${isMedicine ? " medicine-item" : ""}`} key={`${item.category}-${index}`}>

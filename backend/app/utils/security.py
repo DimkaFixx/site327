@@ -175,6 +175,12 @@ def verify_csrf(request: Request) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "CSRF validation failed")
 
 
+def verify_allowed_origin(request: Request) -> None:
+    origin = request.headers.get("Origin", "")
+    if origin and origin not in get_settings().cors_origin_list:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Origin is not allowed")
+
+
 def is_current_admin(nickname: str) -> bool:
     settings = get_settings()
     normalized = normalize_nickname(nickname)

@@ -57,9 +57,11 @@ async function readErrorMessage(response: Response) {
 }
 
 async function refreshSession(): Promise<Session> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  withCsrf(headers, "POST");
   const response = await fetch(`${API_URL}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     credentials: "include",
   });
   if (!response.ok) {

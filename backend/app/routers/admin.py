@@ -1,5 +1,6 @@
 from io import BytesIO
 import uuid
+import warnings
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
@@ -62,19 +63,25 @@ async def admin_upload_image(request: Request, file: UploadFile = File(...)) -> 
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Файл слишком большой")
 
     try:
-        with Image.open(BytesIO(content)) as image:
-            image.verify()
-        with Image.open(BytesIO(content)) as image:
-            image = ImageOps.exif_transpose(image)
-            if output_format[0] == "JPEG" and image.mode != "RGB":
-                image = image.convert("RGB")
-            elif image.mode not in ("RGB", "RGBA"):
-                image = image.convert("RGBA" if output_format[0] in {"PNG", "WEBP"} else "RGB")
-            output = BytesIO()
-            save_kwargs = {"quality": 88} if output_format[0] in {"JPEG", "WEBP"} else {}
-            image.save(output, format=output_format[0], **save_kwargs)
-            sanitized_content = output.getvalue()
-    except (UnidentifiedImageError, OSError) as exc:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(content)) as image:
+                if image.width * image.height > settings.max_upload_pixels:
+                    raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Слишком большое разрешение изображения")
+                image.verify()
+            with Image.open(BytesIO(content)) as image:
+                if image.width * image.height > settings.max_upload_pixels:
+                    raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Слишком большое разрешение изображения")
+                image = ImageOps.exif_transpose(image)
+                if output_format[0] == "JPEG" and image.mode != "RGB":
+                    image = image.convert("RGB")
+                elif image.mode not in ("RGB", "RGBA"):
+                    image = image.convert("RGBA" if output_format[0] in {"PNG", "WEBP"} else "RGB")
+                output = BytesIO()
+                save_kwargs = {"quality": 88} if output_format[0] in {"JPEG", "WEBP"} else {}
+                image.save(output, format=output_format[0], **save_kwargs)
+                sanitized_content = output.getvalue()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Файл не является корректным изображением") from exc
 
     uploads_path.mkdir(parents=True, exist_ok=True)

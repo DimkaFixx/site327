@@ -38,6 +38,7 @@ Service account должен быть добавлен в таблицу как 
 
 - `COOKIE_SECURE=true` ставь на сервере с HTTPS. Для локального HTTP оставляй `false`, иначе браузер не сохранит auth-cookie.
 - `COOKIE_SAMESITE=lax` подходит для обычного сценария, где frontend и API живут на одном сайте. Не ставь `none` без HTTPS.
+- `MAX_UPLOAD_PIXELS=20000000` ограничивает разрешение загружаемых изображений и защищает обработчик от image-decompression bomb.
 - `CORS_ORIGINS` должен содержать только реальные адреса frontend, например `https://example.com`.
 - `TRUSTED_PROXY_IPS` заполняй только IP reverse proxy, которому можно доверять `X-Forwarded-For`. Если пусто, backend использует прямой IP клиента.
 - `TOKEN_SECRET` должен быть длинной случайной строкой и не должен попадать в git.
