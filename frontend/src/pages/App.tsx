@@ -892,7 +892,6 @@ function DocPage({ docId }: { docId: string }) {
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
-          <a className="ghost-link" href="#/ghost-admin/photos"><ImageUp size={16} /> Фотохостинг</a>
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
@@ -1323,6 +1322,8 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
   const [verificationCodes, setVerificationCodes] = useState<VerificationCodeAdminItem[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([]);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [isSynchronizing, setIsSynchronizing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const [accessRules, setAccessRules] = useState<AccessRules>(emptyAccessRules);
   const [docAccessRules, setDocAccessRules] = useState<AccessRules>(emptyAccessRules);
   const [editingAccessGroup, setEditingAccessGroup] = useState<AccessGroup | null | undefined>(undefined);
@@ -1388,6 +1389,21 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     await api.createTab(tabTitle, tabAudience);
     setTabTitle("");
     await refresh();
+  }
+
+  async function synchronizeSheets() {
+    setIsSynchronizing(true);
+    setError("");
+    setSyncMessage("");
+    try {
+      const result = await api.syncSoldiersAndEquipment();
+      await refresh();
+      setSyncMessage(`Обновлено: состав — ${result.soldiers}, строк регламента — ${result.equipment_rows}.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось обновить данные из Google Sheets");
+    } finally {
+      setIsSynchronizing(false);
+    }
   }
 
   async function saveMarkdownSettings(event: FormEvent) {
@@ -1546,9 +1562,12 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
+          <a className="ghost-link" href="#/ghost-admin/photos"><ImageUp size={16} /> Фотохостинг</a>
+          <button className="secondary-button" onClick={() => void synchronizeSheets()} disabled={isSynchronizing}>{isSynchronizing ? "Обновление..." : "Обновить данные"}</button>
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
+      {syncMessage && <div className="notice">{syncMessage}</div>}
       <section className="admin-section">
         <div className="section-heading-row">
           <div>

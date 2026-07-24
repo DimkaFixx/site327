@@ -176,6 +176,7 @@ export const api = {
   deleteVerificationCodes: (nickname: string) =>
     request<{ deleted: number }>(`/api/admin/verification-codes/${encodeURIComponent(nickname)}`, { method: "DELETE" }),
   adminAudit: () => request<AuditEventItem[]>("/api/admin/audit"),
+  syncSoldiersAndEquipment: () => request<{ soldiers: number; equipment_rows: number }>("/api/admin/soldiers-sync", { method: "POST" }),
   hostedPhotos: () => request<HostedPhoto[]>("/api/admin/photo-host"),
   uploadHostedPhoto: (file: File) => {
     const body = new FormData();
