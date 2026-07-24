@@ -1,10 +1,10 @@
-import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, Trash2, UserRound, UsersRound, X } from "lucide-react";
+import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentItem, EquipmentResponse, FormItem, FormTab, HomePage, ManualRegulation, MarkdownSettings, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 type View = "me" | "equipment" | "competencies" | "profiles" | "forms" | "docs";
 type FormsAdminSheet = "view" | "create" | "edit";
@@ -612,10 +612,10 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
           </div>
           <div className="equipment-panel">
             {equipment.equipment.length === 0 && <div className="empty">Для выбранного регламента пока нет перечня снаряжения.</div>}
-            {equipment.equipment.map((item) => (
-              <div className="equipment-row" key={item.category}>
+            {equipment.equipment.map((item, index) => (
+              <div className="equipment-row" key={`${item.category}-${index}`}>
                 <strong>{item.category}</strong>
-                <p>{formatValue(item.value)}</p>
+                <p>{formatValue([item.amount, item.value].filter(Boolean).join("\n"))}</p>
               </div>
             ))}
           </div>
@@ -630,10 +630,10 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
         <h2>{equipment.medicine_title}</h2>
         <div className="equipment-panel">
           {equipment.medicine.length === 0 && <div className="empty">Регламент медицины не найден.</div>}
-          {equipment.medicine.map((item) => (
-            <div className="equipment-row" key={item.category}>
+          {equipment.medicine.map((item, index) => (
+            <div className="equipment-row" key={`${item.category}-${index}`}>
               <strong>{item.category}</strong>
-              <p>{formatValue(item.value)}</p>
+              <p>{formatValue([item.amount, item.value].filter(Boolean).join("\n"))}</p>
             </div>
           ))}
         </div>
@@ -1437,9 +1437,9 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     setError("");
     setSyncMessage("");
     try {
-      const result = await api.syncSoldiersAndEquipment();
+      const [soldiers, competencies] = await Promise.all([api.syncSoldiersAndEquipment(), api.syncCompetencies()]);
       await refresh();
-      setSyncMessage(`Обновлено: состав — ${result.soldiers}, снаряжение — ${result.equipment_rows} строк, компетенции — ${result.competencies_rows} строк.`);
+      setSyncMessage(`Обновлены: состав — ${soldiers.soldiers}, компетенции — ${competencies.rows} строк.`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Не удалось обновить данные из Google Sheets");
     } finally {
@@ -1557,7 +1557,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
 
   async function updateRoles(user: UserAccount, next: Partial<Pick<UserAccount, "is_admin">>) {
     const isAdmin = next.is_admin ?? user.is_admin;
-    const updated = await api.updateUserRoles(user.nickname, user.is_default_admin ? false : isAdmin);
+    const updated = await api.updateUserRoles(user.nickname, isAdmin);
     setUsers((current) => current.map((item) => (item.nickname === updated.nickname ? updated : item)));
   }
 
@@ -1603,7 +1603,6 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
-          <a className="ghost-link" href="#/ghost-admin/photos"><ImageUp size={16} /> Фотохостинг</a>
           <button className="secondary-button" onClick={() => void synchronizeSheets()} disabled={isSynchronizing}>{isSynchronizing ? "Обновление..." : "Обновить данные"}</button>
         </div>
       </header>
@@ -1618,6 +1617,17 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
           <div className="row-actions">
             <a className="secondary-button row-link-button" href="#/">Открыть</a>
             <a className="secondary-button row-link-button" href="#/home/edit">Редактировать</a>
+          </div>
+        </div>
+      </section>
+      <section className="admin-section">
+        <div className="section-heading-row">
+          <div>
+            <h2>Сервисы</h2>
+            <p>Внутренние инструменты для работы с материалами батальона.</p>
+          </div>
+          <div className="row-actions">
+            <a className="secondary-button row-link-button" href="#/ghost-admin/regulations"><Package size={16} /> Регламенты</a>
           </div>
         </div>
       </section>
@@ -1922,7 +1932,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
                 <input
                   type="checkbox"
                   checked={user.is_admin}
-                  disabled={user.is_default_admin}
+                  disabled={user.is_default_admin || user.nickname.trim().replaceAll("`", "").toLocaleLowerCase() === session.profile.nickname.trim().replaceAll("`", "").toLocaleLowerCase()}
                   onChange={(event) => updateRoles(user, { is_admin: event.target.checked })}
                 />
                 Админ
@@ -1964,106 +1974,191 @@ function AuditModal({ events, onClose }: { events: AuditEventItem[]; onClose: ()
   );
 }
 
-function PhotoHostPage() {
-  const [photos, setPhotos] = useState<HostedPhoto[]>([]);
-  const [error, setError] = useState("");
-  const [uploading, setUploading] = useState(false);
-  const [copiedFilename, setCopiedFilename] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+const regulationCategories = ["Шлем", "Форма", "Жилет", "Рюкзак", "Осн. оружие", "Вторичное оружие", "Пистолет", "Гранаты", "ПНВ", "Доп"];
 
-  const refresh = useCallback(() => {
-    api.hostedPhotos().then(setPhotos).catch((error) => setError(error instanceof Error ? error.message : "Не удалось загрузить список изображений"));
-  }, []);
+function blankRegulation(title = "Новый регламент"): ManualRegulation {
+  return {
+    id: `regulation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    title,
+    image_url: "",
+    assignments: [],
+    specializations: [],
+    ranks: [],
+    positions: [],
+    items: [],
+  };
+}
 
+function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicine = false }: { regulation: ManualRegulation; onChange: (next: ManualRegulation) => void; onRemove?: () => void; removable?: boolean; isMedicine?: boolean }) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [filterText, setFilterText] = useState({
+    assignments: regulation.assignments.join(", "),
+    specializations: regulation.specializations.join(", "),
+    ranks: regulation.ranks.join(", "),
+    positions: regulation.positions.join(", "),
+  });
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    setFilterText({
+      assignments: regulation.assignments.join(", "),
+      specializations: regulation.specializations.join(", "),
+      ranks: regulation.ranks.join(", "),
+      positions: regulation.positions.join(", "),
+    });
+  }, [regulation.id]);
+  const toList = (value: string) => value.split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
+  const updateFilter = (field: "assignments" | "specializations" | "ranks" | "positions", value: string) => {
+    setFilterText((current) => ({ ...current, [field]: value }));
+    onChange({ ...regulation, [field]: toList(value) });
+  };
+  const updateItems = (items: EquipmentItem[]) => onChange({ ...regulation, items });
+  const pasteTable = (event: ClipboardEvent<HTMLElement>) => {
+    const text = event.clipboardData.getData("text/plain");
+    const lines = text.replace(/\r/g, "").split("\n");
+    if (!text.includes("\t")) return;
+    event.preventDefault();
+    if (isMedicine) {
+      const rows = lines.map((line) => line.split("\t").map((cell) => cell.trim())).filter((row) => row.some(Boolean));
+      updateItems(rows.map((row) => ({ category: row[0] || "Пункт", amount: row[1] || "", value: row.slice(2).join("\t"), image_url: "" })));
+      return;
+    }
+    const categoryKey = (value: string) => value.toLowerCase().replace(/[\s.]/g, "");
+    const knownCategory = (value: string) => regulationCategories.find((category) => categoryKey(category) === categoryKey(value));
+    const imported: EquipmentItem[] = [];
+    let current: EquipmentItem | null = null;
+    for (const line of lines) {
+      const cells = line.split("\t").map((cell) => cell.replaceAll('"', "").trim());
+      const categoryIndex = cells.findIndex((cell) => Boolean(knownCategory(cell.trim())));
+      if (categoryIndex >= 0) {
+        if (current) imported.push(current);
+        current = {
+          category: knownCategory(cells[categoryIndex].trim()) || cells[categoryIndex].trim(),
+          value: cells.slice(categoryIndex + 1).join("\t").trim(),
+          amount: "",
+          image_url: "",
+        };
+      } else if (current) {
+        const continuation = cells.join("\t").trim();
+        if (continuation) current.value = `${current.value}${current.value ? "\n" : ""}${continuation}`;
+      }
+    }
+    if (current) imported.push(current);
+    if (imported.length) updateItems(imported);
+  };
+  async function uploadImage(file: File) {
+    setIsUploading(true);
+    try {
+      const result = await api.uploadImage(file);
+      onChange({ ...regulation, image_url: result.url });
+    } finally {
+      setIsUploading(false);
+    }
+  }
+  return (
+    <article className="regulation-editor" onPasteCapture={pasteTable}>
+      <div className="section-heading-row">
+        <input value={regulation.title} onChange={(event) => onChange({ ...regulation, title: event.target.value })} placeholder="Название регламента" />
+        {removable && <button className="danger-button" type="button" onClick={onRemove}>Удалить</button>}
+      </div>
+      <div className="regulation-filters">
+        <label>Приписки<input value={filterText.assignments} onChange={(event) => updateFilter("assignments", event.target.value)} placeholder="ARC, ARF, ARC-..." /></label>
+        <label>Специализации<input value={filterText.specializations} onChange={(event) => updateFilter("specializations", event.target.value)} placeholder="M, HM, MS" /></label>
+        {!isMedicine && <label>Звания<input value={filterText.ranks} onChange={(event) => updateFilter("ranks", event.target.value)} placeholder="PVT, CPL, SGT" /></label>}
+        {!isMedicine && <label>Должности<input value={filterText.positions} onChange={(event) => updateFilter("positions", event.target.value)} placeholder="Командир отряда" /></label>}
+      </div>
+      {!isMedicine && <>
+        <button className="regulation-photo-dropzone" type="button" onClick={() => imageInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
+          event.preventDefault();
+          const file = event.dataTransfer.files[0];
+          if (file?.type.startsWith("image/")) void uploadImage(file);
+        }} disabled={isUploading}>
+          <ImageUp size={20} />
+          <span>{isUploading ? "Загрузка фото..." : regulation.image_url ? "Заменить фото комплекта" : "Перетащите фото комплекта сюда или нажмите для выбора"}</span>
+        </button>
+        <input ref={imageInputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void uploadImage(file);
+          event.target.value = "";
+        }} />
+      </>}
+      <textarea className="regulation-paste-input" onPaste={pasteTable} placeholder={isMedicine ? "Вставьте из Google Sheets колонки: пункт, количество, описание" : "Вставьте из Google Sheets колонки: категория, содержимое"} />
+      <p className="regulation-paste-hint">Нажмите Ctrl+V в это поле — строки сразу распределятся по пунктам. Для комплекта также поддерживается первый столбец с фото.</p>
+      <div className="regulation-items">
+        {regulation.items.map((item, index) => (
+          <div className={`regulation-item${isMedicine ? " medicine-item" : ""}`} key={`${item.category}-${index}`}>
+            <input value={item.category} onChange={(event) => updateItems(regulation.items.map((current, currentIndex) => currentIndex === index ? { ...current, category: event.target.value } : current))} placeholder="Категория" />
+            {isMedicine && <input value={item.amount} onChange={(event) => updateItems(regulation.items.map((current, currentIndex) => currentIndex === index ? { ...current, amount: event.target.value } : current))} placeholder="Количество" />}
+            <textarea value={item.value} onChange={(event) => updateItems(regulation.items.map((current, currentIndex) => currentIndex === index ? { ...current, value: event.target.value } : current))} placeholder={isMedicine ? "Описание" : "Снаряжение"} />
+            <button className="icon-button secondary-button" type="button" aria-label="Удалить пункт" onClick={() => updateItems(regulation.items.filter((_, currentIndex) => currentIndex !== index))}><X size={16} /></button>
+          </div>
+        ))}
+      </div>
+      <button className="secondary-button" type="button" onClick={() => updateItems([...regulation.items, { category: "", value: "", amount: "", image_url: "" }])}>Добавить пункт</button>
+    </article>
+  );
+}
 
-  async function uploadFiles(files: FileList | File[]) {
-    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
-    if (!images.length) return;
-    setUploading(true);
+function RegulationsPage() {
+  const [store, setStore] = useState<RegulationsStore | null>(null);
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [editing, setEditing] = useState<{ kind: "equipment" | "medicine" | "base"; index?: number } | null>(null);
+  useEffect(() => {
+    api.regulations().then(setStore).catch((error) => setError(error instanceof Error ? error.message : "Не удалось загрузить регламенты"));
+  }, []);
+  if (!store) return <main className="shell"><div className="empty">{error || "Загрузка регламентов..."}</div></main>;
+  const save = async () => {
+    setIsSaving(true);
     setError("");
     try {
-      await Promise.all(images.map((file) => api.uploadHostedPhoto(file)));
-      refresh();
+      setStore(await api.updateRegulations(store));
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Не удалось загрузить изображения");
+      setError(error instanceof Error ? error.message : "Не удалось сохранить регламенты");
     } finally {
-      setUploading(false);
+      setIsSaving(false);
     }
-  }
-
-  async function copyUrl(photo: HostedPhoto) {
-    const url = new URL(photo.url, window.location.origin).href;
-    await navigator.clipboard.writeText(url);
-    setCopiedFilename(photo.filename);
-    window.setTimeout(() => setCopiedFilename(""), 1_400);
-  }
-
-  async function removePhoto(photo: HostedPhoto) {
-    if (!window.confirm("Удалить это изображение? Ссылки на него в Google Sheets перестанут работать.")) return;
-    try {
-      await api.deleteHostedPhoto(photo.filename);
-      setPhotos((items) => items.filter((item) => item.filename !== photo.filename));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Не удалось удалить изображение");
-    }
-  }
-
-  async function renamePhoto(photo: HostedPhoto, title: string) {
-    const nextTitle = title.trim();
-    if (nextTitle === photo.title) return;
-    try {
-      const updated = await api.updateHostedPhoto(photo.filename, nextTitle);
-      setPhotos((items) => items.map((item) => item.filename === photo.filename ? updated : item));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Не удалось сохранить название");
-    }
-  }
-
+  };
+  const updateEquipment = (index: number, next: ManualRegulation) => setStore({ ...store, equipment: store.equipment.map((item, itemIndex) => itemIndex === index ? next : item) });
+  const updateMedicine = (index: number, next: ManualRegulation) => setStore({ ...store, medicine_rules: store.medicine_rules.map((item, itemIndex) => itemIndex === index ? next : item) });
+  const editingRule = editing?.kind === "equipment" ? store.equipment[editing.index ?? 0] : editing?.kind === "medicine" ? store.medicine_rules[editing.index ?? 0] : editing?.kind === "base" ? store.medicine_base : null;
+  const updateEditingRule = (next: ManualRegulation) => {
+    if (editing?.kind === "equipment") updateEquipment(editing.index ?? 0, next);
+    if (editing?.kind === "medicine") updateMedicine(editing.index ?? 0, next);
+    if (editing?.kind === "base") setStore({ ...store, medicine_base: next });
+  };
+  const ruleCard = (rule: ManualRegulation, onEdit: () => void) => (
+    <article className="regulation-card" key={rule.id}>
+      <div><h3>{rule.title}</h3><p>{rule.items.filter((item) => item.value.trim() || item.amount.trim()).length} заполненных пунктов · {rule.image_url ? "фото прикреплено" : "без фото"}</p></div>
+      <button className="secondary-button" type="button" onClick={onEdit}>Редактировать</button>
+    </article>
+  );
   return (
-    <main className="shell photo-host-page">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Админка</p>
-          <h1>Фотохостинг</h1>
-        </div>
-        <a className="ghost-link" href="#/ghost-admin">К админке</a>
-      </header>
-      <p className="photo-host-intro">Загружайте изображения и копируйте их публичные ссылки для формулы <code>=IMAGE("ссылка")</code> в Google Sheets.</p>
+    <main className="shell regulations-page">
+      <header className="topbar"><div><p className="eyebrow">Админка</p><h1>Регламенты</h1></div><a className="ghost-link" href="#/ghost-admin">К админке</a></header>
+      <p className="regulations-intro">Настройте правила показа и вставляйте данные снаряжения из таблицы напрямую. Регламент с наибольшим числом совпавших условий получит приоритет.</p>
       {error && <div className="alert">{error}</div>}
-      <button
-        className="photo-dropzone"
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          void uploadFiles(event.dataTransfer.files);
-        }}
-      >
-        <ImageUp size={28} />
-        <strong>{uploading ? "Загрузка..." : "Перетащите изображения сюда"}</strong>
-        <span>или нажмите, чтобы выбрать файлы</span>
-      </button>
-      <input ref={inputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple onChange={(event) => {
-        if (event.target.files) void uploadFiles(event.target.files);
-        event.target.value = "";
-      }} />
-      <section className="photo-host-grid">
-        {photos.length === 0 && <div className="empty">Изображений пока нет.</div>}
-        {photos.map((photo) => (
-          <article className="hosted-photo-card" key={photo.filename}>
-            <img src={photo.url} alt={photo.title || "Загруженное изображение"} />
-            <input className="hosted-photo-title" defaultValue={photo.title} placeholder="Название изображения" maxLength={160} onBlur={(event) => void renamePhoto(photo, event.target.value)} />
-            <div className="hosted-photo-actions">
-              <button className="secondary-button" onClick={() => void copyUrl(photo)}><Copy size={16} /> {copiedFilename === photo.filename ? "Скопировано" : "Копировать ссылку"}</button>
-              <button className="danger-button icon-button" onClick={() => void removePhoto(photo)} title="Удалить изображение"><Trash2 size={17} /></button>
-            </div>
-          </article>
-        ))}
+      <section className="admin-section"><div className="section-heading-row"><div><h2>Снаряжение</h2><p>Если фильтры пустые, регламент является общим.</p></div><button type="button" onClick={() => { setStore({ ...store, equipment: [...store.equipment, blankRegulation()] }); setEditing({ kind: "equipment", index: store.equipment.length }); }}>Добавить регламент</button></div>
+        <div className="regulation-cards">{store.equipment.map((rule, index) => ruleCard(rule, () => setEditing({ kind: "equipment", index })))}</div>
       </section>
+      <section className="admin-section"><h2>Медицина</h2><p className="regulations-intro">Базовый регламент получают все. Правила ниже заменяют его при совпадении условий.</p>
+        <h3>Базовый регламент</h3>
+        <div className="regulation-cards">{ruleCard(store.medicine_base, () => setEditing({ kind: "base" }))}</div>
+        <div className="nonstandard-regulations"><div className="section-heading-row"><h3>Нестандартные регламенты</h3><button type="button" onClick={() => { setStore({ ...store, medicine_rules: [...store.medicine_rules, blankRegulation("Нестандартная медицина")] }); setEditing({ kind: "medicine", index: store.medicine_rules.length }); }}>Добавить регламент</button></div>
+          <div className="regulation-cards">{store.medicine_rules.map((rule, index) => ruleCard(rule, () => setEditing({ kind: "medicine", index })))}</div></div>
+      </section>
+      <div className="form-actions"><button onClick={() => void save()} disabled={isSaving}>{isSaving ? "Сохранение..." : "Сохранить регламенты"}</button></div>
+      {editing && editingRule && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setEditing(null)}>
+          <section className="access-modal regulation-modal" role="dialog" aria-modal="true" aria-label={`Редактирование: ${editingRule.title}`} onMouseDown={(event) => event.stopPropagation()}>
+            <div className="form-modal-bar"><h2>Редактирование регламента</h2><button className="icon-button secondary-button" type="button" onClick={() => setEditing(null)} aria-label="Закрыть"><X size={18} /></button></div>
+            <RegulationEditor regulation={editingRule} onChange={updateEditingRule} isMedicine={editing.kind === "base" || editing.kind === "medicine"} removable={editing.kind !== "base"} onRemove={() => {
+              if (editing.kind === "equipment") setStore({ ...store, equipment: store.equipment.filter((_, index) => index !== editing.index) });
+              if (editing.kind === "medicine") setStore({ ...store, medicine_rules: store.medicine_rules.filter((_, index) => index !== editing.index) });
+              setEditing(null);
+            }} />
+          </section>
+        </div>
+      )}
     </main>
   );
 }
@@ -2082,14 +2177,14 @@ export function App() {
   const [forms, setForms] = useState<FormTab[]>([]);
   const [docs, setDocs] = useState<DocsSection[]>([]);
   const isAdminRoute = route === "#/ghost-admin";
-  const isPhotoHostRoute = route === "#/ghost-admin/photos";
+  const isRegulationsRoute = route === "#/ghost-admin/regulations";
   const isArchiveRoute = route === "#/archive";
   const isHomeEditRoute = route === "#/home/edit";
   const docEditRouteMatch = route.match(/^#\/docs\/([^/]+)\/edit$/);
   const docRouteMatch = route.match(/^#\/docs\/([^/]+)$/);
   const docEditRouteId = docEditRouteMatch ? decodeURIComponent(docEditRouteMatch[1]) : "";
   const docRouteId = docRouteMatch ? decodeURIComponent(docRouteMatch[1]) : "";
-  const isAdminOnlyRoute = isAdminRoute || isPhotoHostRoute || isHomeEditRoute || Boolean(docEditRouteId);
+  const isAdminOnlyRoute = isAdminRoute || isRegulationsRoute || isHomeEditRoute || Boolean(docEditRouteId);
 
   const syncSession = useCallback(async () => {
     const updated = await api.me();
@@ -2193,9 +2288,9 @@ export function App() {
     return <AdminPanel session={session} onAdminAccessDenied={handleAdminAccessDenied} />;
   }
 
-  if (isPhotoHostRoute) {
+  if (isRegulationsRoute) {
     if (!session || !session.is_admin) return null;
-    return <PhotoHostPage />;
+    return <RegulationsPage />;
   }
 
   if (isHomeEditRoute) {

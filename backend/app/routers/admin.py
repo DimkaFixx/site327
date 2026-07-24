@@ -9,10 +9,11 @@ from app.config import get_settings
 from app.repositories.audit import list_audit_events, log_admin_event
 from app.repositories.docs_store import create_doc_access_group, delete_doc_access_group, get_doc_access_rules, load_docs_store, update_doc_access_group, update_markdown_settings
 from app.repositories.forms_store import create_access_group, delete_access_group, get_access_rules, load_store, update_access_group
+from app.repositories.regulations_store import load_regulations_store, save_regulations_store
 from app.repositories.sessions import revoke_user_refresh_tokens
 from app.repositories.users import list_users, reset_user_password, set_user_roles
 from app.repositories.verification import delete_verifications, list_active_verification_codes, reset_verifications
-from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, MarkdownSettings, UserAccount, UserRolesPayload, VerificationCodeAdminItem
+from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, MarkdownSettings, RegulationsStore, UserAccount, UserRolesPayload, VerificationCodeAdminItem
 from app.utils.security import require_admin
 
 router = APIRouter(prefix="/api/admin")
@@ -195,8 +196,11 @@ async def admin_delete_verification_codes(nickname: str, request: Request) -> di
 @router.patch("/users/{nickname}/roles", response_model=UserAccount)
 async def admin_update_user_roles(nickname: str, payload: UserRolesPayload, request: Request) -> UserAccount:
     settings = get_settings()
-    require_admin(request)
+    session = require_admin(request)
     normalized = nickname.strip().strip("`").strip().casefold()
+    actor = str(session.get("nickname", "")).strip().strip("`").strip().casefold()
+    if not payload.is_admin and normalized == actor:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Нельзя снять права администратора с собственной учётной записи")
     is_default_admin = normalized == settings.default_admin_name
     saved = set_user_roles(nickname, payload.is_admin)
     if not saved:
@@ -226,3 +230,15 @@ async def admin_reset_user_password(nickname: str, request: Request) -> dict[str
 async def admin_audit_events(request: Request, limit: int = 200) -> list[AuditEventItem]:
     require_admin(request)
     return [AuditEventItem(**item) for item in list_audit_events(limit)]
+@router.get("/regulations", response_model=RegulationsStore)
+async def admin_regulations(request: Request) -> RegulationsStore:
+    require_admin(request)
+    return load_regulations_store()
+
+
+@router.put("/regulations", response_model=RegulationsStore)
+async def admin_update_regulations(payload: RegulationsStore, request: Request) -> RegulationsStore:
+    require_admin(request)
+    saved = save_regulations_store(payload)
+    log_admin_event(request, "update_regulations", details={"equipment": len(saved.equipment), "medicine_rules": len(saved.medicine_rules)})
+    return saved

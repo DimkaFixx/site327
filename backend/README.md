@@ -21,7 +21,6 @@ Backend читает таблицу через Google Sheets API от имени
 - `GOOGLE_SERVICE_ACCOUNT_FILE=.creditials.json` - путь к ключу.
 - `GOOGLE_SHEET_ID` - ID таблицы из URL.
 - `GOOGLE_SHEET_GID` - gid листа; используется, если `GOOGLE_SHEET_RANGE` пустой.
-- `GOOGLE_EQUIPMENT_SHEET_GID` - gid листа с регламентом снаряжения; по умолчанию `1962917472`.
 - `GOOGLE_SHEET_RANGE` - необязательный явный диапазон, например `'Личный состав'!A:Z`; если пустой, читается весь лист по `GOOGLE_SHEET_GID`.
 
 Service account должен быть добавлен в таблицу как `Viewer`. После этого таблицу можно закрыть от общего доступа.

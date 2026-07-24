@@ -40,29 +40,12 @@ soldiers_cache = Table(
     Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
-equipment_sheet_cache = Table(
-    "equipment_sheet_cache",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("rows", JSON, nullable=False),
-    Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-)
-
 competencies_sheet_cache = Table(
     "competencies_sheet_cache",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("rows", JSON, nullable=False),
     Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-)
-
-photo_host_images = Table(
-    "photo_host_images",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("filename", String(40), nullable=False, unique=True, index=True),
-    Column("title", String(160), nullable=False, server_default=""),
-    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
 refresh_sessions = Table(
@@ -131,6 +114,8 @@ engine = create_db_engine()
 def init_db() -> None:
     metadata.create_all(engine)
     with engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS equipment_sheet_cache"))
+        connection.execute(text("DROP TABLE IF EXISTS photo_host_images"))
         if engine.dialect.name == "sqlite":
             columns = {row[1] for row in connection.execute(text("PRAGMA table_info(users)"))}
             if "is_admin" not in columns:
@@ -140,9 +125,6 @@ def init_db() -> None:
                 connection.execute(text("ALTER TABLE verification_codes ADD COLUMN locked_until DATETIME"))
             if verification_columns and "code_plain" not in verification_columns:
                 connection.execute(text("ALTER TABLE verification_codes ADD COLUMN code_plain VARCHAR(6)"))
-            photo_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(photo_host_images)"))}
-            if photo_columns and "title" not in photo_columns:
-                connection.execute(text("ALTER TABLE photo_host_images ADD COLUMN title VARCHAR(160) NOT NULL DEFAULT ''"))
 
 
 @contextmanager

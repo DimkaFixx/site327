@@ -38,6 +38,7 @@ export type Soldier = {
 export type EquipmentItem = {
   category: string;
   value: string;
+  amount: string;
   image_url: string;
 };
 
@@ -50,6 +51,23 @@ export type EquipmentResponse = {
   medicine: EquipmentItem[];
 };
 
+export type ManualRegulation = {
+  id: string;
+  title: string;
+  image_url: string;
+  assignments: string[];
+  specializations: string[];
+  ranks: string[];
+  positions: string[];
+  items: EquipmentItem[];
+};
+
+export type RegulationsStore = {
+  equipment: ManualRegulation[];
+  medicine_base: ManualRegulation;
+  medicine_rules: ManualRegulation[];
+};
+
 export type CompetencyItem = {
   title: string;
   group: string;
@@ -59,13 +77,6 @@ export type CompetencyItem = {
 export type CompetenciesResponse = {
   attestations: CompetencyItem[];
   tech_access: CompetencyItem[];
-};
-
-export type HostedPhoto = {
-  filename: string;
-  title: string;
-  url: string;
-  created_at: string;
 };
 
 export type FormItem = {

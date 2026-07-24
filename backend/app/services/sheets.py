@@ -10,8 +10,8 @@ from googleapiclient.errors import HttpError
 from sqlalchemy import delete, func, insert, select
 
 from app.config import get_settings
-from app.repositories.database import competencies_sheet_cache, db_session, equipment_sheet_cache, soldiers_cache
-from app.schemas.models import CompetenciesResponse, CompetencyItem, EquipmentItem, EquipmentResponse, Soldier
+from app.repositories.database import competencies_sheet_cache, db_session, soldiers_cache
+from app.schemas.models import CompetenciesResponse, CompetencyItem, Soldier
 
 
 HEADER_ALIASES = {
@@ -199,140 +199,6 @@ async def fetch_soldiers_from_sheet() -> list[Soldier]:
 
 def _cell(row: list[Any], index: int) -> str:
     return _clean_value(row[index]) if index < len(row) else ""
-
-
-def _normalise_rule_key(value: str) -> str:
-    return re.sub(r"\s+", "", value).upper().replace("С", "C")
-
-
-def _rank_column(rank: str) -> tuple[int, str]:
-    normalized = _normalise_rule_key(rank)
-    if normalized in {"SPS", "SSG", "SGT"}:
-        return 7, "SGT → SPS"
-    if normalized in {"LT", "SLT", "SPL", "CPT", "MAJ", "COL", "GEN"}:
-        return 10, "LT+"
-    return 4, "CR → CPL"
-
-
-def _rule_matches(value: str, candidates: set[str]) -> bool:
-    parts = {_normalise_rule_key(part) for part in value.split(",") if part.strip()}
-    return bool(parts & candidates)
-
-
-def _find_equipment_group(rows: list[list[Any]], soldier: Soldier) -> tuple[str, list[list[Any]]]:
-    medicine_start = next((index for index, row in enumerate(rows) if "МЕДИЦИНА РЕГ." in _cell(row, 2).upper()), len(rows))
-    blocks: list[tuple[str, str, list[list[Any]]]] = []
-    current_title = ""
-    current_key = ""
-    current_rows: list[list[Any]] = []
-
-    for row in rows[2:medicine_start]:
-        title = _cell(row, 0)
-        key = _cell(row, 1)
-        if title:
-            if current_rows:
-                blocks.append((current_title, current_key, current_rows))
-            current_title = title
-            current_key = key or title
-            current_rows = [row]
-        elif current_rows and any(_cell(row, index) for index in range(3, 12)):
-            current_rows.append(row)
-    if current_rows:
-        blocks.append((current_title, current_key, current_rows))
-
-    assignment = _normalise_rule_key(str(soldier.raw.get("Приписка", "")))
-    specializations = {_normalise_rule_key(item) for item in re.split(r"[,;/]", str(soldier.raw.get("Специализация", ""))) if item.strip()}
-    for title, key, block_rows in blocks:
-        if assignment and assignment in {_normalise_rule_key(key), _normalise_rule_key(title)}:
-            return title, block_rows
-    for title, key, block_rows in blocks:
-        if _rule_matches(key, specializations):
-            return title, block_rows
-    fallback = next((block for block in blocks if _normalise_rule_key(block[0]) == "TROOPER"), None)
-    return (fallback[0], fallback[2]) if fallback else ("Общий регламент", [])
-
-
-def _image_url(row: list[Any]) -> str:
-    for value in row:
-        match = re.search(r"https?://[^\s\"']+", str(value))
-        if match:
-            return match.group(0)
-    return ""
-
-
-def _medicine_for_soldier(rows: list[list[Any]], soldier: Soldier) -> tuple[str, list[EquipmentItem]]:
-    start = next((index for index, row in enumerate(rows) if "МЕДИЦИНА РЕГ." in _cell(row, 2).upper()), -1)
-    if start < 0:
-        return "Медицина", []
-    assignment = _normalise_rule_key(str(soldier.raw.get("Приписка", "")))
-    specializations = {
-        _normalise_rule_key(item)
-        for item in re.split(r"[,;/]", str(soldier.raw.get("Специализация", "")))
-        if item.strip()
-    }
-    if assignment.startswith("ARC") or assignment.startswith("ARF"):
-        offset, title = 18, "Медицина ARC/ARF"
-    elif "MI" in specializations:
-        offset, title = 6, "Базовая медицина полевого медика-интерна"
-    elif specializations & {"MS", "SM", "MM", "DMM", "HSM", "HMS"}:
-        offset, title = 14, "Базовая медицина медика-специалиста и выше"
-    elif specializations & {"M", "HM"}:
-        offset, title = 10, "Базовая медицина полевого медика"
-    else:
-        offset, title = 2, "Медицина бойца"
-
-    result: list[EquipmentItem] = []
-    for row in rows[start + 2 :]:
-        name = _cell(row, offset)
-        amount = _cell(row, offset + 1)
-        note = _cell(row, offset + 2)
-        if not name:
-            continue
-        value = " · ".join(item for item in (amount, note) if item)
-        result.append(EquipmentItem(category=name, value=value or "Согласно регламенту"))
-    return title, result
-
-
-async def get_equipment_for_soldier(soldier: Soldier) -> EquipmentResponse:
-    rows = fetch_cached_equipment_rows()
-    if not rows:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Регламент снаряжения ещё не загружен")
-    title, group_rows = _find_equipment_group(rows, soldier)
-    value_column, rank_group = _rank_column(soldier.rank)
-    image_url = next((url for row in group_rows if (url := _image_url(row))), "")
-    equipment: list[EquipmentItem] = []
-    for row in group_rows:
-        category = _cell(row, value_column - 1)
-        value = _cell(row, value_column)
-        if not value:
-            for fallback in (4, 7, 10):
-                category = category or _cell(row, fallback - 1)
-                value = _cell(row, fallback)
-                if value:
-                    break
-        if category and value:
-            equipment.append(EquipmentItem(category=category, value=value))
-    medicine_title, medicine = _medicine_for_soldier(rows, soldier)
-    return EquipmentResponse(regulation=title, rank_group=rank_group, image_url=image_url, equipment=equipment, medicine_title=medicine_title, medicine=medicine)
-
-
-def fetch_cached_equipment_rows() -> list[list[Any]]:
-    with db_session() as db:
-        row = db.execute(select(equipment_sheet_cache.c.rows).where(equipment_sheet_cache.c.id == 1)).scalar_one_or_none()
-    return row if isinstance(row, list) else []
-
-
-def has_cached_equipment() -> bool:
-    with db_session() as db:
-        return db.execute(select(equipment_sheet_cache.c.id).where(equipment_sheet_cache.c.id == 1)).scalar_one_or_none() is not None
-
-
-async def sync_equipment_from_sheet() -> int:
-    rows = await asyncio.to_thread(_fetch_sheet_rows_for_gid, get_settings().google_equipment_sheet_gid, "FORMULA")
-    with db_session() as db:
-        db.execute(delete(equipment_sheet_cache).where(equipment_sheet_cache.c.id == 1))
-        db.execute(insert(equipment_sheet_cache).values(id=1, rows=rows, synced_at=datetime.utcnow()))
-    return len(rows)
 
 
 def fetch_cached_competencies_rows() -> list[list[Any]]:

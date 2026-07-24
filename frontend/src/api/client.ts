@@ -1,4 +1,4 @@
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, MarkdownSettings, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -177,15 +177,10 @@ export const api = {
   deleteVerificationCodes: (nickname: string) =>
     request<{ deleted: number }>(`/api/admin/verification-codes/${encodeURIComponent(nickname)}`, { method: "DELETE" }),
   adminAudit: () => request<AuditEventItem[]>("/api/admin/audit"),
-  syncSoldiersAndEquipment: () => request<{ soldiers: number; equipment_rows: number; competencies_rows: number }>("/api/admin/soldiers-sync", { method: "POST" }),
-  hostedPhotos: () => request<HostedPhoto[]>("/api/admin/photo-host"),
-  uploadHostedPhoto: (file: File) => {
-    const body = new FormData();
-    body.append("file", file);
-    return uploadRequest<HostedPhoto>("/api/admin/photo-host", body);
-  },
-  updateHostedPhoto: (filename: string, title: string) => request<HostedPhoto>(`/api/admin/photo-host/${encodeURIComponent(filename)}`, { method: "PATCH", body: JSON.stringify({ title }) }),
-  deleteHostedPhoto: (filename: string) => request<{ deleted: boolean }>(`/api/admin/photo-host/${encodeURIComponent(filename)}`, { method: "DELETE" }),
+  syncSoldiersAndEquipment: () => request<{ soldiers: number }>("/api/admin/soldiers-sync", { method: "POST" }),
+  syncCompetencies: () => request<{ rows: number }>("/api/admin/competencies-sync", { method: "POST" }),
+  regulations: () => request<RegulationsStore>("/api/admin/regulations"),
+  updateRegulations: (payload: RegulationsStore) => request<RegulationsStore>("/api/admin/regulations", { method: "PUT", body: JSON.stringify(payload) }),
   updateHome: (payload: HomePage) =>
     request<HomePage>("/api/admin/home", {
       method: "PATCH",

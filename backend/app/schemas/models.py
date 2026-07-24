@@ -21,6 +21,7 @@ class Soldier(BaseModel):
 class EquipmentItem(BaseModel):
     category: str
     value: str
+    amount: str = ""
     image_url: str = ""
 
 
@@ -31,6 +32,26 @@ class EquipmentResponse(BaseModel):
     equipment: list[EquipmentItem] = Field(default_factory=list)
     medicine_title: str
     medicine: list[EquipmentItem] = Field(default_factory=list)
+
+
+class RegulationFilters(BaseModel):
+    assignments: list[str] = Field(default_factory=list)
+    specializations: list[str] = Field(default_factory=list)
+    ranks: list[str] = Field(default_factory=list)
+    positions: list[str] = Field(default_factory=list)
+
+
+class ManualRegulation(RegulationFilters):
+    id: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=140)
+    image_url: str = Field(default="", max_length=500)
+    items: list[EquipmentItem] = Field(default_factory=list)
+
+
+class RegulationsStore(BaseModel):
+    equipment: list[ManualRegulation] = Field(default_factory=list)
+    medicine_base: ManualRegulation
+    medicine_rules: list[ManualRegulation] = Field(default_factory=list)
 
 
 class CompetencyItem(BaseModel):
