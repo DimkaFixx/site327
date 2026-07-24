@@ -894,6 +894,7 @@ function DocumentOutline({ content }: { content: string }) {
 function DocEditPage({ docId }: { docId: string }) {
   const [doc, setDoc] = useState<DocItem | null>(null);
   const [docsStore, setDocsStore] = useState<DocsSection[]>([]);
+  const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
   const [docAccessRules, setDocAccessRules] = useState<AccessRules>(emptyAccessRules);
   const [docDraft, setDocDraft] = useState<Omit<DocItem, "id">>(emptyDocDraft());
   const [error, setError] = useState("");
@@ -906,6 +907,7 @@ function DocEditPage({ docId }: { docId: string }) {
       .then(([doc, store, rules]) => {
         setDoc(doc);
         setDocsStore(store.sections);
+        setMarkdownSettings(store.markdown_settings);
         setDocAccessRules(rules);
         setDocDraft({
           title: doc.title,
@@ -962,7 +964,7 @@ function DocEditPage({ docId }: { docId: string }) {
                 {savedMessage && <small>{savedMessage}</small>}
               </div>
             </div>
-            <article className="markdown-document editor-preview">
+            <article className="markdown-document editor-preview" style={markdownSettingsStyle(markdownSettings)}>
               <div className="document-header">
                 <span>{audienceLabel(docDraft.audience, docAccessRules.groups)}</span>
                 <h2>{docDraft.title || "Без названия"}</h2>
