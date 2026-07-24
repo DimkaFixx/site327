@@ -653,10 +653,10 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
 function CompetenciesView({ competencies, error }: { competencies: CompetenciesResponse | null; error: string }) {
   if (!competencies) return <div className="empty">{error || "Загрузка компетенций..."}</div>;
   const groups = (items: CompetenciesResponse["attestations"]) => {
-    const result = new Map<string, string[]>();
+    const result = new Map<string, CompetenciesResponse["attestations"]>();
     for (const item of items) {
       const group = item.group || "Аттестации";
-      result.set(group, [...(result.get(group) || []), item.title]);
+      result.set(group, [...(result.get(group) || []), item]);
     }
     return [...result.entries()];
   };
@@ -674,7 +674,7 @@ function CompetenciesView({ competencies, error }: { competencies: CompetenciesR
         {attestationGroups.length === 0 ? <div className="empty">Аттестации пока не указаны.</div> : attestationGroups.map(([group, items]) => (
           <div className="competency-group" key={group}>
             {group && <p className="competency-group-title">{group}</p>}
-            <div className="competency-chips">{items.map((item) => <span key={item}><Check size={15} />{item}</span>)}</div>
+            <div className="competency-chips">{items.map((item) => <span className={item.completed ? "" : "is-pending"} key={item.title}>{item.completed ? <Check size={15} /> : <X size={15} />}{item.title}<small>{item.completed ? "Пройдено" : "Не пройдено"}</small></span>)}</div>
           </div>
         ))}
       </section>
@@ -683,7 +683,7 @@ function CompetenciesView({ competencies, error }: { competencies: CompetenciesR
         {techGroups.length === 0 ? <div className="empty">Допуски к технике пока не указаны.</div> : techGroups.map(([group, items]) => (
           <div className="competency-group" key={group}>
             {group && <p className="competency-group-title">{group}</p>}
-            <div className="competency-chips">{items.map((item) => <span key={item}><BadgeCheck size={15} />{item}</span>)}</div>
+            <div className="competency-chips">{items.map((item) => <span className={item.completed ? "" : "is-pending"} key={item.title}>{item.completed ? <BadgeCheck size={15} /> : <X size={15} />}{item.title}<small>{item.completed ? "Есть доступ" : "Нет доступа"}</small></span>)}</div>
           </div>
         ))}
       </section>

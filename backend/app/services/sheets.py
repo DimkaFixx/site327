@@ -375,8 +375,8 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
         for index in range(5, 33):
             current_group = _cell(headings, index) or current_group
             title = _cell(labels, index)
-            if title and _cell(attestation_row, index) == "1":
-                attestations.append(CompetencyItem(title=title, group=current_group))
+            if title:
+                attestations.append(CompetencyItem(title=title, group=current_group, completed=_cell(attestation_row, index) == "1"))
 
     tech_access: list[CompetencyItem] = []
     if tech_row:
@@ -384,8 +384,8 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
         for index in range(37, 48):
             current_group = _cell(headings, index) or current_group
             title = _cell(labels, index)
-            if title and _cell(tech_row, index) == "1":
-                tech_access.append(CompetencyItem(title=title, group=current_group))
+            if title:
+                tech_access.append(CompetencyItem(title=title, group=current_group, completed=_cell(tech_row, index) == "1"))
     return CompetenciesResponse(attestations=attestations, tech_access=tech_access)
 
 

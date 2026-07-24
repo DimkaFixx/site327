@@ -36,6 +36,7 @@ class EquipmentResponse(BaseModel):
 class CompetencyItem(BaseModel):
     title: str
     group: str = ""
+    completed: bool = False
 
 
 class CompetenciesResponse(BaseModel):

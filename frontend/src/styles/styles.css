@@ -364,6 +364,23 @@ button:disabled {
   color: var(--accent);
 }
 
+.competency-chips span.is-pending {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  opacity: 0.72;
+}
+
+.competency-chips span.is-pending svg {
+  color: var(--muted);
+}
+
+.competency-chips small {
+  margin-left: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .equipment-regulation,
 .medicine-section {
   padding: 20px 24px;

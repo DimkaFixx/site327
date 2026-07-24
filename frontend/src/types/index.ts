@@ -53,6 +53,7 @@ export type EquipmentResponse = {
 export type CompetencyItem = {
   title: string;
   group: string;
+  completed: boolean;
 };
 
 export type CompetenciesResponse = {
