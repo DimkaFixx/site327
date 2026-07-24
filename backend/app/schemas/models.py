@@ -162,6 +162,11 @@ class DocPayload(BaseModel):
     description: str = Field(default="", max_length=500)
     active: bool = True
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def empty_url_as_none(cls, value: Any) -> Any:
+        return None if value == "" else value
+
     @model_validator(mode="after")
     def validate_link_document(self) -> "DocPayload":
         if self.document_type == "link" and self.url is None:
