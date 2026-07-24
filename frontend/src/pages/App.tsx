@@ -1,12 +1,12 @@
-import { BookOpenText, Check, ClipboardList, Copy, ExternalLink, LogOut, Menu, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
+import { BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, Trash2, UserRound, UsersRound, X } from "lucide-react";
 import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, FormItem, FormTab, HomePage, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, HostedPhoto, MarkdownSettings, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
-type View = "me" | "profiles" | "forms" | "docs";
+type View = "me" | "equipment" | "profiles" | "forms" | "docs";
 type FormsAdminSheet = "view" | "create" | "edit";
 type DocsAdminSheet = "view" | "create";
 
@@ -597,6 +597,59 @@ function ProfileCard({ profile }: { profile: Soldier }) {
   );
 }
 
+function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | null; error: string }) {
+  const [isImageOpen, setIsImageOpen] = useState(false);
+  if (!equipment) return <div className="empty">{error || "Загрузка регламента снаряжения..."}</div>;
+  const formatValue = (value: string) => value.replace(/\s*\/\/\s*/g, "\n").trim();
+  return (
+    <section className="equipment-view">
+      <section className="equipment-regulation">
+        <div className="equipment-content">
+          <div className="document-header equipment-header">
+            <span>{equipment.rank_group}</span>
+            <h2>{equipment.regulation}</h2>
+            <p>Регламент снаряжения подобран по вашей приписке, специализации и званию.</p>
+          </div>
+          <div className="equipment-panel">
+            {equipment.equipment.length === 0 && <div className="empty">Для выбранного регламента пока нет перечня снаряжения.</div>}
+            {equipment.equipment.map((item) => (
+              <div className="equipment-row" key={item.category}>
+                <strong>{item.category}</strong>
+                <p>{formatValue(item.value)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {equipment.image_url && (
+          <button className="equipment-image-button" type="button" onClick={() => setIsImageOpen(true)} aria-label="Увеличить изображение комплекта">
+            <img className="equipment-image" src={equipment.image_url} alt={`Комплект: ${equipment.regulation}`} />
+          </button>
+        )}
+      </section>
+      <section className="medicine-section">
+        <h2>{equipment.medicine_title}</h2>
+        <div className="equipment-panel">
+          {equipment.medicine.length === 0 && <div className="empty">Регламент медицины не найден.</div>}
+          {equipment.medicine.map((item) => (
+            <div className="equipment-row" key={item.category}>
+              <strong>{item.category}</strong>
+              <p>{formatValue(item.value)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      {isImageOpen && equipment.image_url && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsImageOpen(false)}>
+          <section className="access-modal equipment-image-modal" role="dialog" aria-modal="true" aria-label={`Изображение комплекта: ${equipment.regulation}`} onMouseDown={(event) => event.stopPropagation()}>
+            <button className="icon-button secondary-button equipment-image-close" type="button" onClick={() => setIsImageOpen(false)} aria-label="Закрыть изображение"><X size={18} /></button>
+            <img src={equipment.image_url} alt={`Комплект: ${equipment.regulation}`} />
+          </section>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ProfilesView({ soldiers }: { soldiers: Soldier[] }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Soldier | null>(soldiers[0] ?? null);
@@ -839,6 +892,7 @@ function DocPage({ docId }: { docId: string }) {
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
+          <a className="ghost-link" href="#/ghost-admin/photos"><ImageUp size={16} /> Фотохостинг</a>
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
@@ -1850,6 +1904,98 @@ function AuditModal({ events, onClose }: { events: AuditEventItem[]; onClose: ()
   );
 }
 
+function PhotoHostPage() {
+  const [photos, setPhotos] = useState<HostedPhoto[]>([]);
+  const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [copiedFilename, setCopiedFilename] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const refresh = useCallback(() => {
+    api.hostedPhotos().then(setPhotos).catch((error) => setError(error instanceof Error ? error.message : "Не удалось загрузить список изображений"));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function uploadFiles(files: FileList | File[]) {
+    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (!images.length) return;
+    setUploading(true);
+    setError("");
+    try {
+      await Promise.all(images.map((file) => api.uploadHostedPhoto(file)));
+      refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось загрузить изображения");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function copyUrl(photo: HostedPhoto) {
+    const url = new URL(photo.url, window.location.origin).href;
+    await navigator.clipboard.writeText(url);
+    setCopiedFilename(photo.filename);
+    window.setTimeout(() => setCopiedFilename(""), 1_400);
+  }
+
+  async function removePhoto(photo: HostedPhoto) {
+    if (!window.confirm("Удалить это изображение? Ссылки на него в Google Sheets перестанут работать.")) return;
+    try {
+      await api.deleteHostedPhoto(photo.filename);
+      setPhotos((items) => items.filter((item) => item.filename !== photo.filename));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Не удалось удалить изображение");
+    }
+  }
+
+  return (
+    <main className="shell photo-host-page">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Админка</p>
+          <h1>Фотохостинг</h1>
+        </div>
+        <a className="ghost-link" href="#/ghost-admin">К админке</a>
+      </header>
+      <p className="photo-host-intro">Загружайте изображения и копируйте их публичные ссылки для формулы <code>=IMAGE("ссылка")</code> в Google Sheets.</p>
+      {error && <div className="alert">{error}</div>}
+      <button
+        className="photo-dropzone"
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          void uploadFiles(event.dataTransfer.files);
+        }}
+      >
+        <ImageUp size={28} />
+        <strong>{uploading ? "Загрузка..." : "Перетащите изображения сюда"}</strong>
+        <span>или нажмите, чтобы выбрать файлы</span>
+      </button>
+      <input ref={inputRef} className="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple onChange={(event) => {
+        if (event.target.files) void uploadFiles(event.target.files);
+        event.target.value = "";
+      }} />
+      <section className="photo-host-grid">
+        {photos.length === 0 && <div className="empty">Изображений пока нет.</div>}
+        {photos.map((photo) => (
+          <article className="hosted-photo-card" key={photo.filename}>
+            <img src={photo.url} alt="Загруженное изображение" />
+            <div className="hosted-photo-actions">
+              <button className="secondary-button" onClick={() => void copyUrl(photo)}><Copy size={16} /> {copiedFilename === photo.filename ? "Скопировано" : "Копировать ссылку"}</button>
+              <button className="danger-button icon-button" onClick={() => void removePhoto(photo)} title="Удалить изображение"><Trash2 size={17} /></button>
+            </div>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
 export function App() {
   const [route, setRoute] = useState(window.location.hash || "#/");
   const [session, setSession] = useState<Session | null>(storageSession);
@@ -1857,16 +2003,19 @@ export function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] = useState(false);
   const [soldiers, setSoldiers] = useState<Soldier[]>([]);
+  const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
+  const [equipmentError, setEquipmentError] = useState("");
   const [forms, setForms] = useState<FormTab[]>([]);
   const [docs, setDocs] = useState<DocsSection[]>([]);
   const isAdminRoute = route === "#/ghost-admin";
+  const isPhotoHostRoute = route === "#/ghost-admin/photos";
   const isArchiveRoute = route === "#/archive";
   const isHomeEditRoute = route === "#/home/edit";
   const docEditRouteMatch = route.match(/^#\/docs\/([^/]+)\/edit$/);
   const docRouteMatch = route.match(/^#\/docs\/([^/]+)$/);
   const docEditRouteId = docEditRouteMatch ? decodeURIComponent(docEditRouteMatch[1]) : "";
   const docRouteId = docRouteMatch ? decodeURIComponent(docRouteMatch[1]) : "";
-  const isAdminOnlyRoute = isAdminRoute || isHomeEditRoute || Boolean(docEditRouteId);
+  const isAdminOnlyRoute = isAdminRoute || isPhotoHostRoute || isHomeEditRoute || Boolean(docEditRouteId);
 
   const syncSession = useCallback(async () => {
     const updated = await api.me();
@@ -1920,6 +2069,13 @@ export function App() {
       setForms(forms);
       setDocs(docs);
     });
+    api.equipment().then((result) => {
+      setEquipment(result);
+      setEquipmentError("");
+    }).catch((error) => {
+      setEquipment(null);
+      setEquipmentError(error instanceof Error ? error.message : "Не удалось загрузить регламент снаряжения");
+    });
   }, [session, isArchiveRoute, isAdminRoute, isHomeEditRoute, docRouteId, docEditRouteId]);
 
   const currentProfile = useMemo(() => session?.profile ?? null, [session]);
@@ -1954,6 +2110,11 @@ export function App() {
   if (isAdminRoute) {
     if (!session || !session.is_admin) return null;
     return <AdminPanel session={session} onAdminAccessDenied={handleAdminAccessDenied} />;
+  }
+
+  if (isPhotoHostRoute) {
+    if (!session || !session.is_admin) return null;
+    return <PhotoHostPage />;
   }
 
   if (isHomeEditRoute) {
@@ -2007,6 +2168,7 @@ export function App() {
       </header>
       <nav className="nav desktop-nav">
         <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
+        <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
         <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
         <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
         <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
@@ -2014,6 +2176,7 @@ export function App() {
       {isMobileMenuOpen && (
         <nav className="mobile-menu" id="archive-mobile-menu" aria-label="Навигация по архиву">
           <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
+          <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
           <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
           <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
           <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
@@ -2025,6 +2188,7 @@ export function App() {
       )}
       <div className="mobile-menu-content">
         {view === "me" && <ProfileCard profile={currentProfile} />}
+        {view === "equipment" && <EquipmentView equipment={equipment} error={equipmentError} />}
         {view === "profiles" && <ProfilesView soldiers={soldiers} />}
         {view === "forms" && <FormsView tabs={forms} />}
         {view === "docs" && <DocsView sections={docs} />}

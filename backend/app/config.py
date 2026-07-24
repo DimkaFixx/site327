@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     google_sheet_id: str
     google_sheet_gid: str
+    google_equipment_sheet_gid: str = "1962917472"
     google_sheet_csv_url: str
     google_sheet_range: str
     google_service_account_file: str

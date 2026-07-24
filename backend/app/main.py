@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.repositories.database import init_db
 from app.routers import admin, auth, docs, forms, health, home, soldiers, uploads
-from app.services.sheets import has_cached_soldiers, seconds_until_next_sync, sync_soldiers_from_sheet
+from app.services.sheets import has_cached_equipment, has_cached_soldiers, seconds_until_next_sync, sync_equipment_from_sheet, sync_soldiers_from_sheet
 from app.utils.security import verify_csrf
 
 
@@ -51,6 +51,8 @@ async def startup() -> None:
     init_db()
     if not has_cached_soldiers():
         await sync_soldiers_from_sheet()
+    if not has_cached_equipment():
+        await sync_equipment_from_sheet()
     sync_task = asyncio.create_task(soldiers_sync_loop())
 
 
@@ -67,3 +69,5 @@ async def soldiers_sync_loop() -> None:
         await asyncio.sleep(seconds_until_next_sync())
         with suppress(Exception):
             await sync_soldiers_from_sheet()
+        with suppress(Exception):
+            await sync_equipment_from_sheet()

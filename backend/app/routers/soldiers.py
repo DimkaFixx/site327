@@ -3,8 +3,8 @@ from fastapi import APIRouter, HTTPException, Request, status
 from app.repositories.audit import log_admin_event
 from app.repositories.docs_store import resolve_doc_access
 from app.repositories.forms_store import resolve_access
-from app.schemas.models import LoginResponse, Soldier
-from app.services.sheets import fetch_soldiers, find_soldier, sync_soldiers_from_sheet
+from app.schemas.models import EquipmentResponse, LoginResponse, Soldier
+from app.services.sheets import fetch_soldiers, find_soldier, get_equipment_for_soldier, sync_equipment_from_sheet, sync_soldiers_from_sheet
 from app.utils.security import is_current_admin, require_admin, require_ready_session
 
 router = APIRouter(prefix="/api")
@@ -37,9 +37,19 @@ async def soldiers(request: Request) -> list[Soldier]:
     return fetch_soldiers()
 
 
+@router.get("/equipment", response_model=EquipmentResponse)
+async def equipment(request: Request) -> EquipmentResponse:
+    session = require_ready_session(request)
+    soldier = find_soldier(str(session.get("nickname", "")))
+    if soldier is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Профиль больше не найден")
+    return await get_equipment_for_soldier(soldier)
+
+
 @router.post("/admin/soldiers-sync")
 async def admin_sync_soldiers(request: Request) -> dict[str, int]:
     require_admin(request)
-    synced = await sync_soldiers_from_sheet()
-    log_admin_event(request, "sync_soldiers", details={"synced": synced})
-    return {"synced": synced}
+    soldiers_synced = await sync_soldiers_from_sheet()
+    equipment_rows_synced = await sync_equipment_from_sheet()
+    log_admin_event(request, "sync_soldiers", details={"soldiers": soldiers_synced, "equipment_rows": equipment_rows_synced})
+    return {"soldiers": soldiers_synced, "equipment_rows": equipment_rows_synced}

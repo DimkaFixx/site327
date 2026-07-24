@@ -35,6 +35,27 @@ export type Soldier = {
   raw: Record<string, unknown>;
 };
 
+export type EquipmentItem = {
+  category: string;
+  value: string;
+  image_url: string;
+};
+
+export type EquipmentResponse = {
+  regulation: string;
+  rank_group: string;
+  image_url: string;
+  equipment: EquipmentItem[];
+  medicine_title: string;
+  medicine: EquipmentItem[];
+};
+
+export type HostedPhoto = {
+  filename: string;
+  url: string;
+  created_at: string;
+};
+
 export type FormItem = {
   id: string;
   title: string;

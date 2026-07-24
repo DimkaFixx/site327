@@ -18,6 +18,21 @@ class Soldier(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
 
 
+class EquipmentItem(BaseModel):
+    category: str
+    value: str
+    image_url: str = ""
+
+
+class EquipmentResponse(BaseModel):
+    regulation: str
+    rank_group: str
+    image_url: str = ""
+    equipment: list[EquipmentItem] = Field(default_factory=list)
+    medicine_title: str
+    medicine: list[EquipmentItem] = Field(default_factory=list)
+
+
 class LoginRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=80)
     password: str | None = Field(default=None, min_length=4, max_length=120)

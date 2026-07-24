@@ -40,6 +40,22 @@ soldiers_cache = Table(
     Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+equipment_sheet_cache = Table(
+    "equipment_sheet_cache",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("rows", JSON, nullable=False),
+    Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
+photo_host_images = Table(
+    "photo_host_images",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("filename", String(40), nullable=False, unique=True, index=True),
+    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 refresh_sessions = Table(
     "refresh_sessions",
     metadata,
