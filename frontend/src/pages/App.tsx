@@ -1099,10 +1099,15 @@ function MarkdownEditorTextarea({
     restoreEditorPosition(start + text.length, scrollTop);
   }
 
-  function replaceText(search: string, replacement: string, scrollTop: number) {
+  function replaceInsertedText(search: string, replacement: string, preferredStart: number, scrollTop: number) {
     let cursorPosition = 0;
     setValue((current) => {
-      const index = current.indexOf(search);
+      // Keep the replacement tied to the place where the image was pasted.
+      // Searching from the beginning could move the caret to another matching
+      // placeholder (or to the document start) when the editor contained more
+      // than one upload in progress.
+      const atPreferredPosition = current.slice(preferredStart, preferredStart + search.length) === search;
+      const index = atPreferredPosition ? preferredStart : current.indexOf(search);
       if (index < 0) {
         cursorPosition = current.length;
         return current;
@@ -1120,9 +1125,9 @@ function MarkdownEditorTextarea({
     insertText(placeholder, start, end, scrollTop);
     try {
       const result = await api.uploadImage(file);
-      replaceText(placeholder, `![${alt}](${result.url})`, scrollTop);
+      replaceInsertedText(placeholder, `![${alt}](${result.url})`, start, scrollTop);
     } catch {
-      replaceText(placeholder, `<!-- Не удалось загрузить изображение: ${alt} -->`, scrollTop);
+      replaceInsertedText(placeholder, `<!-- Не удалось загрузить изображение: ${alt} -->`, start, scrollTop);
     }
   }
 

@@ -1094,7 +1094,7 @@ summary {
   border: 1px solid var(--border);
   padding: 10px 12px;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .markdown-document th {
