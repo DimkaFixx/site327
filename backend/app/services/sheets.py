@@ -201,6 +201,27 @@ def _cell(row: list[Any], index: int) -> str:
     return _clean_value(row[index]) if index < len(row) else ""
 
 
+def _find_marker_index(row: list[Any], *markers: str) -> int | None:
+    """Find a section marker in the sheet's first row.
+
+    The competencies sheet has changed column positions over time, so section
+    boundaries must come from the marker names rather than hard-coded indexes.
+    """
+    wanted = {_clean_header(marker) for marker in markers}
+    for index, value in enumerate(row):
+        if _clean_header(_cell(row, index)) in wanted:
+            return index
+    return None
+
+
+def _find_label_index(row: list[Any], label: str, start: int = 0) -> int | None:
+    wanted = _clean_header(label)
+    for index in range(start, len(row)):
+        if _clean_header(_cell(row, index)) == wanted:
+            return index
+    return None
+
+
 def fetch_cached_competencies_rows() -> list[list[Any]]:
     with db_session() as db:
         row = db.execute(select(competencies_sheet_cache.c.rows).where(competencies_sheet_cache.c.id == 1)).scalar_one_or_none()
@@ -230,15 +251,34 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
     if not rows:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Лист компетенций ещё не загружен")
 
+    section_markers = rows[0] if rows else []
     headings = rows[1] if len(rows) > 1 else []
     labels = rows[2] if len(rows) > 2 else []
-    attestation_row = _competency_row(rows, 1, soldier.nickname)
-    tech_row = _competency_row(rows, 34, soldier.nickname)
+
+    competencies_start = _find_marker_index(section_markers, "Компетенции")
+    tech_access_start = _find_marker_index(section_markers, "Доступ к технике")
+    tech_sheet_start = _find_marker_index(section_markers, "Тех-лист расчета", "Тех-лист расчёта")
+    if competencies_start is None:
+        competencies_start = 0
+    if tech_access_start is None:
+        tech_access_start = len(labels)
+    if tech_sheet_start is None:
+        tech_sheet_start = len(labels)
+
+    left_nickname = _find_label_index(headings, "Позывной", competencies_start)
+    right_nickname = _find_label_index(headings, "Позывной", tech_access_start + 1)
+    attestation_row = _competency_row(rows, left_nickname or competencies_start, soldier.nickname)
+    tech_row = _competency_row(rows, right_nickname or tech_access_start, soldier.nickname)
 
     attestations: list[CompetencyItem] = []
     if attestation_row:
         current_group = ""
-        for index in range(5, 33):
+        # First four columns in the competencies section are soldier metadata
+        # (nickname, rank, assignment and specialization).
+        # The marker column itself may contain a competency (currently УДТ-0),
+        # so include it in this section. The actual equipment-access list is
+        # the separate table to the right.
+        for index in range(competencies_start + 4, tech_access_start + 1):
             current_group = _cell(headings, index) or current_group
             title = _cell(labels, index)
             if title:
@@ -247,7 +287,9 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
     tech_access: list[CompetencyItem] = []
     if tech_row:
         current_group = ""
-        for index in range(37, 48):
+        # Locate the right-hand nickname column instead of assuming its offset.
+        tech_items_start = (right_nickname + 3) if right_nickname is not None else tech_access_start + 5
+        for index in range(tech_items_start, tech_sheet_start):
             current_group = _cell(headings, index) or current_group
             title = _cell(labels, index)
             if title:
