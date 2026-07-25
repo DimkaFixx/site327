@@ -1,5 +1,5 @@
 import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
-import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -1083,15 +1083,20 @@ function MarkdownEditorTextarea({
   setValue: Dispatch<SetStateAction<string>>;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const pendingSelectionRef = useRef<{ position: number; scrollTop: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const selection = pendingSelectionRef.current;
+    const textarea = textareaRef.current;
+    if (!selection || !textarea) return;
+    pendingSelectionRef.current = null;
+    textarea.focus();
+    textarea.setSelectionRange(selection.position, selection.position);
+    textarea.scrollTop = selection.scrollTop;
+  }, [value]);
 
   function restoreEditorPosition(cursorPosition: number, scrollTop: number) {
-    requestAnimationFrame(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-      textarea.focus();
-      textarea.setSelectionRange(cursorPosition, cursorPosition);
-      textarea.scrollTop = scrollTop;
-    });
+    pendingSelectionRef.current = { position: cursorPosition, scrollTop };
   }
 
   function insertText(text: string, start: number, end: number, scrollTop: number) {
@@ -1100,7 +1105,6 @@ function MarkdownEditorTextarea({
   }
 
   function replaceInsertedText(search: string, replacement: string, preferredStart: number, scrollTop: number) {
-    let cursorPosition = 0;
     setValue((current) => {
       // Keep the replacement tied to the place where the image was pasted.
       // Searching from the beginning could move the caret to another matching
@@ -1109,13 +1113,12 @@ function MarkdownEditorTextarea({
       const atPreferredPosition = current.slice(preferredStart, preferredStart + search.length) === search;
       const index = atPreferredPosition ? preferredStart : current.indexOf(search);
       if (index < 0) {
-        cursorPosition = current.length;
+        pendingSelectionRef.current = { position: current.length, scrollTop };
         return current;
       }
-      cursorPosition = index + replacement.length;
+      pendingSelectionRef.current = { position: index + replacement.length, scrollTop };
       return `${current.slice(0, index)}${replacement}${current.slice(index + search.length)}`;
     });
-    restoreEditorPosition(cursorPosition, scrollTop);
   }
 
   async function uploadMarkdownImage(file: File, start: number, end: number) {
