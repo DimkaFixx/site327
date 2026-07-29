@@ -2126,6 +2126,7 @@ function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicin
           if (file) void uploadImage(file);
           event.target.value = "";
         }} />
+        {regulation.image_url && <button className="secondary-button regulation-remove-photo" type="button" onClick={() => onChange({ ...regulation, image_url: "" })}>Убрать фото</button>}
       </>}
       <textarea className="regulation-paste-input" onPaste={pasteTable} placeholder={isMedicine ? "Вставьте из Google Sheets колонки: пункт, количество, описание" : "Вставьте из Google Sheets колонки: категория, содержимое"} />
       <p className="regulation-paste-hint">Нажмите Ctrl+V в это поле — строки сразу распределятся по пунктам. Для комплекта также поддерживается первый столбец с фото.</p>

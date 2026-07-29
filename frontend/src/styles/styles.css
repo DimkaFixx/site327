@@ -636,6 +636,10 @@ button:disabled {
   border-color: var(--accent);
 }
 
+.regulation-remove-photo {
+  justify-self: start;
+}
+
 .nonstandard-regulations {
   margin-top: 42px;
 }
