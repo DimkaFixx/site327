@@ -30,6 +30,7 @@ class EquipmentResponse(BaseModel):
     regulation: str
     rank_group: str
     image_url: str = ""
+    award_image_url: str = ""
     equipment: list[EquipmentItem] = Field(default_factory=list)
     medicine_title: str
     medicine: list[EquipmentItem] = Field(default_factory=list)

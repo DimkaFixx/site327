@@ -119,18 +119,20 @@ def get_equipment_for_soldier(soldier: Soldier) -> EquipmentResponse:
                 award_rule = rule
                 best_award_score = score
 
-    equipment = [item for item in equipment_rule.items if item.category and item.value]
+    equipment = []
     if award_rule:
         equipment.extend(
             item.model_copy(update={"is_award": True})
             for item in award_rule.items
             if item.category and item.value
         )
+    equipment.extend(item for item in equipment_rule.items if item.category and item.value)
     medicine_rule = _pick_rule(store.medicine_rules, soldier, store.medicine_base, medicine=True)
     return EquipmentResponse(
         regulation=equipment_rule.title,
         rank_group="Индивидуальный регламент",
         image_url=equipment_rule.image_url,
+        award_image_url=award_rule.image_url if award_rule else "",
         equipment=equipment,
         medicine_title=medicine_rule.title,
         medicine=[item for item in medicine_rule.items if item.category and (item.value or item.amount)],

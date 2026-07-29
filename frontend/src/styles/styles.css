@@ -414,6 +414,12 @@ button:disabled {
   border: 0;
 }
 
+.equipment-image-stack {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
 .equipment-image-button:hover {
   transform: none;
   background: transparent;

@@ -47,6 +47,7 @@ export type EquipmentResponse = {
   regulation: string;
   rank_group: string;
   image_url: string;
+  award_image_url: string;
   equipment: EquipmentItem[];
   medicine_title: string;
   medicine: EquipmentItem[];

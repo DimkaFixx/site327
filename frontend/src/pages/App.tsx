@@ -211,7 +211,7 @@ function profileRows(profile: Soldier) {
     ["Специализация", String(profile.raw["Специализация"] || profile.raw["Спец-я"] || "")],
     ["Должность", profile.position],
     ["Статус", profile.status],
-    awardValue !== undefined ? ["Наградная форма", hasAwardForm ? "Имеется — можно носить вместо стандартной формы" : "Не имеется"] : null,
+    awardValue !== undefined ? ["Наградная форма", hasAwardForm ? "✓" : "✕"] : null,
   ].filter((row): row is [string, string] => Array.isArray(row) && Boolean(String(row[1] || "").trim()));
 }
 
@@ -610,7 +610,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
 }
 
 function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | null; error: string }) {
-  const [isImageOpen, setIsImageOpen] = useState(false);
+  const [openedImage, setOpenedImage] = useState<{ url: string; label: string } | null>(null);
   if (!equipment) return <div className="empty">{error || "Загрузка регламента снаряжения..."}</div>;
   const formatValue = (value: string) => value.replace(/\s*\/\/\s*/g, "\n").trim();
   return (
@@ -632,11 +632,18 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
             ))}
           </div>
         </div>
-        {equipment.image_url && (
-          <button className="equipment-image-button" type="button" onClick={() => setIsImageOpen(true)} aria-label="Увеличить изображение комплекта">
-            <img className="equipment-image" src={equipment.image_url} alt={`Комплект: ${equipment.regulation}`} />
-          </button>
-        )}
+        {(equipment.image_url || equipment.award_image_url) && <div className="equipment-image-stack">
+          {equipment.image_url && (
+            <button className="equipment-image-button" type="button" onClick={() => setOpenedImage({ url: equipment.image_url, label: `Комплект: ${equipment.regulation}` })} aria-label="Увеличить изображение комплекта">
+              <img className="equipment-image" src={equipment.image_url} alt={`Комплект: ${equipment.regulation}`} />
+            </button>
+          )}
+          {equipment.award_image_url && (
+            <button className="equipment-image-button" type="button" onClick={() => setOpenedImage({ url: equipment.award_image_url, label: "Наградная форма" })} aria-label="Увеличить изображение наградной формы">
+              <img className="equipment-image" src={equipment.award_image_url} alt="Наградная форма" />
+            </button>
+          )}
+        </div>}
       </section>
       <section className="medicine-section">
         <h2>{equipment.medicine_title}</h2>
@@ -650,11 +657,11 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
           ))}
         </div>
       </section>
-      {isImageOpen && equipment.image_url && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsImageOpen(false)}>
-          <section className="access-modal equipment-image-modal" role="dialog" aria-modal="true" aria-label={`Изображение комплекта: ${equipment.regulation}`} onMouseDown={(event) => event.stopPropagation()}>
-            <button className="icon-button secondary-button equipment-image-close" type="button" onClick={() => setIsImageOpen(false)} aria-label="Закрыть изображение"><X size={18} /></button>
-            <img src={equipment.image_url} alt={`Комплект: ${equipment.regulation}`} />
+      {openedImage && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpenedImage(null)}>
+          <section className="access-modal equipment-image-modal" role="dialog" aria-modal="true" aria-label={openedImage.label} onMouseDown={(event) => event.stopPropagation()}>
+            <button className="icon-button secondary-button equipment-image-close" type="button" onClick={() => setOpenedImage(null)} aria-label="Закрыть изображение"><X size={18} /></button>
+            <img src={openedImage.url} alt={openedImage.label} />
           </section>
         </div>
       )}
