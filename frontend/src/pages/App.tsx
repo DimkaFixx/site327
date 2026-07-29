@@ -212,7 +212,7 @@ function profileRows(profile: Soldier) {
     ["Должность", profile.position],
     ["Статус", profile.status],
     awardValue !== undefined ? ["Наградная форма", hasAwardForm ? "Имеется — можно носить вместо стандартной формы" : "Не имеется"] : null,
-  ].filter((row): row is [string, string] => Array.isArray(row) && String(row[1] || "").trim());
+  ].filter((row): row is [string, string] => Array.isArray(row) && Boolean(String(row[1] || "").trim()));
 }
 
 function formatProfileValue(value: unknown) {
