@@ -545,6 +545,11 @@ button:disabled {
 
 .regulation-card-draggable {
   cursor: grab;
+  justify-content: flex-start;
+}
+
+.regulation-card-draggable > div {
+  flex: 1;
 }
 
 .regulation-card-draggable.is-dragging {
