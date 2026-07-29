@@ -1,4 +1,4 @@
-import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, ImageUp, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
+import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, GripVertical, ImageUp, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
 import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
@@ -200,6 +200,9 @@ const storageSession = () => {
 };
 
 function profileRows(profile: Soldier) {
+  const awardValue = Object.entries(profile.raw).find(([key]) => normalizeProfileFieldKey(key) === "наг")?.[1];
+  const awardStatus = String(awardValue ?? "").trim().toLocaleLowerCase();
+  const hasAwardForm = awardStatus === "true" || awardStatus === "1" || awardStatus === "да";
   return [
     ["Ник", profile.nickname],
     ["Звание", profile.rank],
@@ -208,7 +211,15 @@ function profileRows(profile: Soldier) {
     ["Специализация", String(profile.raw["Специализация"] || profile.raw["Спец-я"] || "")],
     ["Должность", profile.position],
     ["Статус", profile.status],
-  ].filter(([, value]) => String(value || "").trim());
+    awardValue !== undefined ? ["Наградная форма", hasAwardForm ? "Имеется — можно носить вместо стандартной формы" : "Не имеется"] : null,
+  ].filter((row): row is [string, string] => Array.isArray(row) && String(row[1] || "").trim());
+}
+
+function formatProfileValue(value: unknown) {
+  const normalized = String(value ?? "").trim().toLocaleLowerCase();
+  if (normalized === "true") return "Да";
+  if (normalized === "false") return "Нет";
+  return String(value || "-");
 }
 
 function splitRawRows(profile: Soldier) {
@@ -241,6 +252,7 @@ const compactProfileFieldKeys = new Set([
   "position",
   "статус",
   "status",
+  "наг",
 ]);
 
 function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
@@ -558,7 +570,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
         {profileRows(profile).map(([label, value]) => (
           <div key={label}>
             <span>{label}</span>
-            <strong>{value}</strong>
+            <strong>{formatProfileValue(value)}</strong>
           </div>
         ))}
       </div>
@@ -572,7 +584,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
                 {uniqueDetails.map(([key, value]) => (
                   <p key={key}>
                     <span>{key}</span>
-                    <b>{String(value || "-")}</b>
+                    <b>{formatProfileValue(value)}</b>
                   </p>
                 ))}
               </div>
@@ -585,7 +597,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
                 {summary.map(([key, value]) => (
                   <p key={key}>
                     <span>{key}</span>
-                    <b>{String(value || "-")}</b>
+                    <b>{formatProfileValue(value)}</b>
                   </p>
                 ))}
               </div>
@@ -613,8 +625,8 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
           <div className="equipment-panel">
             {equipment.equipment.length === 0 && <div className="empty">Для выбранного регламента пока нет перечня снаряжения.</div>}
             {equipment.equipment.map((item, index) => (
-              <div className="equipment-row" key={`${item.category}-${index}`}>
-                <strong>{item.category}</strong>
+              <div className={`equipment-row${item.is_award ? " award-equipment-row" : ""}`} key={`${item.category}-${index}`}>
+                <strong><span>{item.category}</span>{item.is_award && <small>Наградная форма</small>}</strong>
                 <p>{formatValue([item.amount, item.value].filter(Boolean).join("\n"))}</p>
               </div>
             ))}
@@ -1989,6 +2001,7 @@ function blankRegulation(title = "Новый регламент"): ManualRegulat
     id: `regulation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     title,
     image_url: "",
+    is_award: false,
     assignments: [],
     specializations: [],
     ranks: [],
@@ -2091,6 +2104,7 @@ function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicin
         {!isMedicine && <label>Звания<input value={filterText.ranks} onChange={(event) => updateFilter("ranks", event.target.value)} placeholder="PVT, CPL, SGT" /></label>}
         {!isMedicine && <label>Должности<input value={filterText.positions} onChange={(event) => updateFilter("positions", event.target.value)} placeholder="Командир отряда" /></label>}
       </div>
+      {!isMedicine && <label className="award-regulation-toggle"><input type="checkbox" checked={regulation.is_award} onChange={(event) => onChange({ ...regulation, is_award: event.target.checked })} />Наградная форма — показывается дополнительно только бойцам с отметкой «Наг»</label>}
       {!isMedicine && <>
         <button className="regulation-photo-dropzone" type="button" onClick={() => imageInputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => {
           event.preventDefault();
@@ -2129,6 +2143,7 @@ function RegulationsPage() {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [editing, setEditing] = useState<{ kind: "equipment" | "medicine" | "base"; index?: number } | null>(null);
+  const [draggedEquipmentIndex, setDraggedEquipmentIndex] = useState<number | null>(null);
   useEffect(() => {
     api.regulations().then(setStore).catch((error) => setError(error instanceof Error ? error.message : "Не удалось загрузить регламенты"));
   }, []);
@@ -2146,6 +2161,13 @@ function RegulationsPage() {
   };
   const updateEquipment = (index: number, next: ManualRegulation) => setStore({ ...store, equipment: store.equipment.map((item, itemIndex) => itemIndex === index ? next : item) });
   const updateMedicine = (index: number, next: ManualRegulation) => setStore({ ...store, medicine_rules: store.medicine_rules.map((item, itemIndex) => itemIndex === index ? next : item) });
+  const moveEquipment = (from: number, to: number) => {
+    if (from === to) return;
+    const equipment = [...store.equipment];
+    const [moved] = equipment.splice(from, 1);
+    equipment.splice(to, 0, moved);
+    setStore({ ...store, equipment });
+  };
   const editingRule = editing?.kind === "equipment" ? store.equipment[editing.index ?? 0] : editing?.kind === "medicine" ? store.medicine_rules[editing.index ?? 0] : editing?.kind === "base" ? store.medicine_base : null;
   const updateEditingRule = (next: ManualRegulation) => {
     if (editing?.kind === "equipment") updateEquipment(editing.index ?? 0, next);
@@ -2154,7 +2176,7 @@ function RegulationsPage() {
   };
   const ruleCard = (rule: ManualRegulation, onEdit: () => void) => (
     <article className="regulation-card" key={rule.id}>
-      <div><h3>{rule.title}</h3><p>{rule.items.filter((item) => item.value.trim() || item.amount.trim()).length} заполненных пунктов · {rule.image_url ? "фото прикреплено" : "без фото"}</p></div>
+      <div><h3>{rule.title}</h3><p>{rule.items.filter((item) => item.value.trim() || item.amount.trim()).length} заполненных пунктов · {rule.image_url ? "фото прикреплено" : "без фото"}{rule.is_award ? " · наградная форма" : ""}</p></div>
       <button className="secondary-button" type="button" onClick={onEdit}>Редактировать</button>
     </article>
   );
@@ -2164,7 +2186,21 @@ function RegulationsPage() {
       <p className="regulations-intro">Настройте правила показа и вставляйте данные снаряжения из таблицы напрямую. Регламент с наибольшим числом совпавших условий получит приоритет.</p>
       {error && <div className="alert">{error}</div>}
       <section className="admin-section"><div className="section-heading-row"><div><h2>Снаряжение</h2><p>Если фильтры пустые, регламент является общим.</p></div><button type="button" onClick={() => { setStore({ ...store, equipment: [...store.equipment, blankRegulation()] }); setEditing({ kind: "equipment", index: store.equipment.length }); }}>Добавить регламент</button></div>
-        <div className="regulation-cards">{store.equipment.map((rule, index) => ruleCard(rule, () => setEditing({ kind: "equipment", index })))}</div>
+        <div className="regulation-cards">{store.equipment.map((rule, index) => (
+          <article
+            className={`regulation-card regulation-card-draggable${draggedEquipmentIndex === index ? " is-dragging" : ""}`}
+            key={rule.id}
+            draggable
+            onDragStart={(event) => { setDraggedEquipmentIndex(index); event.dataTransfer.effectAllowed = "move"; }}
+            onDragEnd={() => setDraggedEquipmentIndex(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => { event.preventDefault(); if (draggedEquipmentIndex !== null) moveEquipment(draggedEquipmentIndex, index); setDraggedEquipmentIndex(null); }}
+          >
+            <button className="regulation-card-drag-handle" type="button" aria-label="Перетащить комплект" tabIndex={-1}><GripVertical size={20} /></button>
+            <div><h3>{rule.title}</h3><p>{rule.items.filter((item) => item.value.trim() || item.amount.trim()).length} заполненных пунктов · {rule.image_url ? "фото прикреплено" : "без фото"}{rule.is_award ? " · наградная форма" : ""}</p></div>
+            <button className="secondary-button" type="button" onClick={() => setEditing({ kind: "equipment", index })}>Редактировать</button>
+          </article>
+        ))}</div>
       </section>
       <section className="admin-section"><h2>Медицина</h2><p className="regulations-intro">Базовый регламент получают все. Правила ниже заменяют его при совпадении условий.</p>
         <h3>Базовый регламент</h3>

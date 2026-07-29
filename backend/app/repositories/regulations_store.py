@@ -99,16 +99,39 @@ def _pick_rule(rules: list[ManualRegulation], soldier: Soldier, fallback: Manual
     return best_rule
 
 
+def _has_award_form(soldier: Soldier) -> bool:
+    value = next((value for key, value in soldier.raw.items() if _normalise(str(key)) == "НАГ"), "")
+    return str(value).strip().casefold() in {"true", "1", "да", "yes"}
+
+
 def get_equipment_for_soldier(soldier: Soldier) -> EquipmentResponse:
     store = load_regulations_store()
-    fallback = store.equipment[0] if store.equipment else _rule("general-equipment", "Общий комплект")
-    equipment_rule = _pick_rule(store.equipment, soldier, fallback)
+    standard_rules = [rule for rule in store.equipment if not rule.is_award]
+    fallback = standard_rules[0] if standard_rules else _rule("general-equipment", "Общий комплект")
+    equipment_rule = _pick_rule(standard_rules, soldier, fallback)
+    award_rule = None
+    if _has_award_form(soldier):
+        award_rules = [rule for rule in store.equipment if rule.is_award]
+        best_award_score = -1
+        for rule in award_rules:
+            matches, score = _rule_matches(rule, soldier)
+            if matches and score >= best_award_score:
+                award_rule = rule
+                best_award_score = score
+
+    equipment = [item for item in equipment_rule.items if item.category and item.value]
+    if award_rule:
+        equipment.extend(
+            item.model_copy(update={"is_award": True})
+            for item in award_rule.items
+            if item.category and item.value
+        )
     medicine_rule = _pick_rule(store.medicine_rules, soldier, store.medicine_base, medicine=True)
     return EquipmentResponse(
         regulation=equipment_rule.title,
         rank_group="Индивидуальный регламент",
         image_url=equipment_rule.image_url,
-        equipment=[item for item in equipment_rule.items if item.category and item.value],
+        equipment=equipment,
         medicine_title=medicine_rule.title,
         medicine=[item for item in medicine_rule.items if item.category and (item.value or item.amount)],
     )

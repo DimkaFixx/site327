@@ -40,6 +40,7 @@ export type EquipmentItem = {
   value: string;
   amount: string;
   image_url: string;
+  is_award?: boolean;
 };
 
 export type EquipmentResponse = {
@@ -55,6 +56,7 @@ export type ManualRegulation = {
   id: string;
   title: string;
   image_url: string;
+  is_award: boolean;
   assignments: string[];
   specializations: string[];
   ranks: string[];

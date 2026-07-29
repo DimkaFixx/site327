@@ -23,6 +23,7 @@ class EquipmentItem(BaseModel):
     value: str
     amount: str = ""
     image_url: str = ""
+    is_award: bool = False
 
 
 class EquipmentResponse(BaseModel):
@@ -45,6 +46,7 @@ class ManualRegulation(RegulationFilters):
     id: str = Field(min_length=1, max_length=80)
     title: str = Field(min_length=1, max_length=140)
     image_url: str = Field(default="", max_length=500)
+    is_award: bool = False
     items: list[EquipmentItem] = Field(default_factory=list)
 
 

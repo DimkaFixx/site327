@@ -454,6 +454,23 @@ button:disabled {
   color: var(--accent);
 }
 
+.equipment-row strong {
+  display: grid;
+  gap: 4px;
+}
+
+.equipment-row strong small {
+  width: fit-content;
+  color: var(--accent-soft);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.award-equipment-row {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 .equipment-row p {
   margin: 0;
   white-space: pre-line;
@@ -524,6 +541,39 @@ button:disabled {
 .regulation-card h3,
 .regulation-card p {
   margin: 0;
+}
+
+.regulation-card-draggable {
+  cursor: grab;
+}
+
+.regulation-card-draggable.is-dragging {
+  opacity: 0.45;
+}
+
+.regulation-card-drag-handle {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 30px;
+  min-height: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: grab;
+}
+
+.award-regulation-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.award-regulation-toggle input {
+  width: auto;
 }
 
 .regulation-card p {
