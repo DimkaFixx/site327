@@ -69,6 +69,35 @@ a {
   padding: 34px;
 }
 
+.session-loading-panel {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.session-loading-panel h1 {
+  margin: 14px 0 10px;
+  font-size: 30px;
+}
+
+.session-loading-panel p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.session-loading-panel button {
+  margin-top: 20px;
+}
+
+.session-loading-spinner {
+  color: var(--accent);
+  animation: session-spinner 0.9s linear infinite;
+}
+
+@keyframes session-spinner {
+  to { transform: rotate(360deg); }
+}
+
 .eyebrow {
   margin: 0 0 8px;
   color: var(--accent);
@@ -303,6 +332,10 @@ button:disabled {
 .profile-card {
   padding: 28px;
   animation: surface-enter 220ms ease-out both;
+}
+
+.profile-selection {
+  scroll-margin-top: 16px;
 }
 
 .equipment-view {
@@ -980,6 +1013,10 @@ summary {
   position: relative;
 }
 
+.mobile-outline-toggle {
+  display: none;
+}
+
 .document-outline {
   width: 100%;
   margin-top: 18px;
@@ -1038,16 +1075,21 @@ summary {
   transform: none;
 }
 
-@media (min-width: 1450px) {
+@media (min-width: 980px) {
+  .document-reading-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 18px;
+    align-items: start;
+  }
+
   .document-outline {
-    position: absolute;
-    top: 0;
-    left: calc(100% + 12px);
+    position: sticky;
+    top: 20px;
     width: 220px;
     max-height: calc(100vh - 48px);
     margin: 0;
     overflow: auto;
-    border-right: 0;
   }
 }
 
@@ -1715,15 +1757,60 @@ summary {
   .topbar {
     display: flex;
     align-items: flex-start;
+    flex-wrap: wrap;
     gap: 12px;
   }
 
   .topbar > div:first-child {
+    flex: 1 1 150px;
     min-width: 0;
   }
 
   .topbar h1 {
     font-size: 30px;
+    overflow-wrap: anywhere;
+  }
+
+  .document-header {
+    position: relative;
+    padding-right: 52px;
+  }
+
+  .mobile-outline-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-grid;
+  }
+
+  .document-outline {
+    display: none;
+  }
+
+  .document-outline.is-open {
+    position: fixed;
+    top: 76px;
+    right: 16px;
+    z-index: 30;
+    display: block;
+    width: min(320px, calc(100vw - 32px));
+    max-height: calc(100vh - 92px);
+    margin: 0;
+    overflow: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.42);
+  }
+
+  .top-actions {
+    flex: 1 1 180px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .top-actions > * {
+    flex: 0 0 auto;
+    max-width: 100%;
+    white-space: nowrap;
   }
 
   .equipment-header {

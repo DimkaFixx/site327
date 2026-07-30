@@ -107,17 +107,18 @@ async def login(payload: LoginRequest, request: Request, response: Response) -> 
 
 @router.post("/refresh", response_model=LoginResponse)
 async def refresh_session(request: Request, response: Response, payload: RefreshRequest | None = Body(default=None)) -> LoginResponse:
+    verify_allowed_origin(request)
     refresh_token = (payload.refresh_token if payload else "") or request.cookies.get("star327_refresh", "")
     if not refresh_token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token required")
     session = decode_token(refresh_token, expected_type="refresh")
     if not is_refresh_token_active(refresh_token):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token revoked")
-    revoke_refresh_token(refresh_token)
     soldier = find_soldier(str(session.get("nickname", "")))
     if soldier is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Профиль больше не найден")
     user = ensure_user(soldier.nickname)
+    revoke_refresh_token(refresh_token)
     return build_login_response(soldier, user, response=response)
 
 

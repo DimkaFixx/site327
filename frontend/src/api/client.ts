@@ -1,6 +1,7 @@
 import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, MarkdownSettings, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+let refreshInFlight: Promise<Session> | null = null;
 
 function readCookie(name: string) {
   const prefix = `${name}=`;
@@ -56,7 +57,7 @@ async function readErrorMessage(response: Response) {
   return text;
 }
 
-async function refreshSession(): Promise<Session> {
+async function performRefreshSession(): Promise<Session> {
   const headers = new Headers({ "Content-Type": "application/json" });
   withCsrf(headers, "POST");
   const response = await fetch(`${API_URL}/api/auth/refresh`, {
@@ -65,12 +66,27 @@ async function refreshSession(): Promise<Session> {
     credentials: "include",
   });
   if (!response.ok) {
-    clearSession();
-    throw new Error("Сессия истекла, войдите заново");
+    if (response.status === 401) {
+      clearSession();
+      throw new Error("Сессия истекла, войдите заново");
+    }
+    throw new Error("Не удалось проверить сессию");
   }
   const session = (await response.json()) as Session;
   saveSession(session);
   return session;
+}
+
+function refreshSession(): Promise<Session> {
+  // Several requests can receive 401 at once when the access token expires.
+  // Refresh tokens are rotated by the backend, therefore those requests must
+  // share one refresh operation instead of invalidating each other's token.
+  if (!refreshInFlight) {
+    refreshInFlight = performRefreshSession().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
 }
 
 async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
@@ -118,7 +134,8 @@ export const api = {
   logout: async () => {
     const headers = new Headers();
     withCsrf(headers, "POST");
-    await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers });
+    const response = await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include", headers });
+    if (!response.ok) throw new Error(await readErrorMessage(response));
     clearSession();
   },
   setPassword: (password: string) =>

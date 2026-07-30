@@ -1,4 +1,4 @@
-import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, GripVertical, ImageUp, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
+import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, GripVertical, ImageUp, LoaderCircle, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
 import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
 import ReactMarkdown from "react-markdown";
@@ -349,6 +349,19 @@ function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
           )}
           <a className="secondary-button row-link-button" href="#/">На главную</a>
         </form>
+      </section>
+    </main>
+  );
+}
+
+function SessionLoadingScreen({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <main className="login">
+      <section className="login-panel session-loading-panel" aria-live="polite">
+        <LoaderCircle className="session-loading-spinner" size={30} aria-hidden="true" />
+        <h1>{error ? "Не удалось подключиться" : "Проверяем сессию"}</h1>
+        <p>{error || "Подождите немного — восстанавливаем вход в архив."}</p>
+        {error && <button type="button" onClick={onRetry}>Повторить</button>}
       </section>
     </main>
   );
@@ -713,11 +726,20 @@ function CompetenciesView({ competencies, error }: { competencies: CompetenciesR
 function ProfilesView({ soldiers }: { soldiers: Soldier[] }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Soldier | null>(soldiers[0] ?? null);
+  const profileRef = useRef<HTMLDivElement | null>(null);
+  const shouldScrollToProfile = useRef(false);
   const filtered = soldiers.filter((soldier) => soldier.nickname.toLowerCase().includes(query.toLowerCase()));
 
   useEffect(() => {
     if (!selected && soldiers[0]) setSelected(soldiers[0]);
   }, [selected, soldiers]);
+
+  useEffect(() => {
+    if (!shouldScrollToProfile.current) return;
+    shouldScrollToProfile.current = false;
+    if (!window.matchMedia("(max-width: 760px)").matches) return;
+    requestAnimationFrame(() => profileRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [selected]);
 
   return (
     <div className="split">
@@ -728,14 +750,24 @@ function ProfilesView({ soldiers }: { soldiers: Soldier[] }) {
         </label>
         <div className="roster">
           {filtered.map((soldier) => (
-            <button key={soldier.id} className={selected?.id === soldier.id ? "active" : ""} onClick={() => setSelected(soldier)}>
+            <button key={soldier.id} className={selected?.id === soldier.id ? "active" : ""} onClick={() => {
+              shouldScrollToProfile.current = true;
+              if (selected?.id === soldier.id) {
+                requestAnimationFrame(() => {
+                  shouldScrollToProfile.current = false;
+                  if (window.matchMedia("(max-width: 760px)").matches) profileRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                });
+              } else {
+                setSelected(soldier);
+              }
+            }}>
               <span>{soldier.nickname}</span>
               <small>{soldier.rank || soldier.number || "Профиль"}</small>
             </button>
           ))}
         </div>
       </aside>
-      {selected ? <ProfileCard profile={selected} /> : <div className="empty">Профиль не выбран</div>}
+      {selected ? <div className="profile-selection" ref={profileRef}><ProfileCard profile={selected} /></div> : <div className="empty">Профиль не выбран</div>}
     </div>
   );
 }
@@ -847,7 +879,7 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
   const normalizedQuery = query.trim().toLowerCase();
   const filteredDocs = (currentSection?.docs ?? []).filter((doc) => {
     if (!normalizedQuery) return true;
-    return [doc.title, doc.description, doc.content].some((value) => value.toLowerCase().includes(normalizedQuery));
+    return [doc.title, doc.description].some((value) => value.toLowerCase().includes(normalizedQuery));
   });
 
   useEffect(() => {
@@ -930,10 +962,13 @@ function DocPage({ docId }: { docId: string }) {
   const [doc, setDoc] = useState<DocItem | null>(null);
   const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
   const [error, setError] = useState("");
+  const [isOutlineOpen, setIsOutlineOpen] = useState(false);
+  const outline = useMemo(() => doc && doc.document_type !== "link" ? extractDocumentOutline(doc.content) : [], [doc]);
 
   useEffect(() => {
     setDoc(null);
     setError("");
+    setIsOutlineOpen(false);
     Promise.all([api.doc(docId), api.docsSettings()])
       .then(([doc, settings]) => {
         setDoc(doc);
@@ -963,6 +998,7 @@ function DocPage({ docId }: { docId: string }) {
               <span>{audienceLabel(doc.audience)}</span>
               <h2>{doc.title}</h2>
               {doc.description && <p>{doc.description}</p>}
+              {outline.length > 0 && <button className="mobile-outline-toggle icon-button secondary-button" type="button" onClick={() => setIsOutlineOpen((current) => !current)} aria-label="Открыть содержание" aria-expanded={isOutlineOpen}><BookOpenText size={18} /></button>}
             </div>
             {doc.document_type === "link" ? (
               <>
@@ -973,18 +1009,17 @@ function DocPage({ docId }: { docId: string }) {
               </>
             ) : <MarkdownWithOutline content={doc.content} />}
           </article>
-          {doc.document_type !== "link" && <DocumentOutline content={doc.content} />}
+          {doc.document_type !== "link" && <DocumentOutline outline={outline} isOpen={isOutlineOpen} onNavigate={() => setIsOutlineOpen(false)} />}
         </div>
       )}
     </main>
   );
 }
 
-function DocumentOutline({ content }: { content: string }) {
-  const outline = useMemo(() => extractDocumentOutline(content), [content]);
+function DocumentOutline({ outline, isOpen, onNavigate }: { outline: DocumentOutlineItem[]; isOpen: boolean; onNavigate: () => void }) {
   if (!outline.length) return null;
   return (
-    <aside className="document-outline" aria-label="Содержание документа">
+    <aside className={`document-outline${isOpen ? " is-open" : ""}`} aria-label="Содержание документа">
       <strong>На этой странице</strong>
       <nav>
         {outline.map((item) => (
@@ -994,7 +1029,10 @@ function DocumentOutline({ content }: { content: string }) {
             className={item.level === 1 ? "outline-section" : "outline-subsection"}
             title={item.text}
             style={{ "--heading-level": item.level } as React.CSSProperties}
-            onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            onClick={() => {
+              document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+              onNavigate();
+            }}
           >
             {item.text}
           </button>
@@ -2236,9 +2274,12 @@ function RegulationsPage() {
 export function App() {
   const [route, setRoute] = useState(window.location.hash || "#/");
   const [session, setSession] = useState<Session | null>(storageSession);
+  const [isSessionRestoring, setIsSessionRestoring] = useState(true);
+  const [sessionRestoreError, setSessionRestoreError] = useState("");
   const [view, setView] = useState<View>("me");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLogoutConfirmationOpen, setIsLogoutConfirmationOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [soldiers, setSoldiers] = useState<Soldier[]>([]);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
   const [equipmentError, setEquipmentError] = useState("");
@@ -2261,8 +2302,32 @@ export function App() {
     api.saveSession(updated);
   }, []);
 
+  const restoreSession = useCallback(async () => {
+    setIsSessionRestoring(true);
+    setSessionRestoreError("");
+    try {
+      // Validate the short-lived access cookie first. The API refreshes it
+      // only when needed, avoiding needless refresh-token rotation on reload.
+      const restored = await api.me();
+      api.saveSession(restored);
+      setSession(restored);
+      if (!window.location.hash || window.location.hash === "#/") window.location.hash = "#/archive";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Не удалось проверить сессию";
+      if (message === "Сессия истекла, войдите заново") {
+        setSession(null);
+      } else if (!storageSession()) {
+        setSessionRestoreError("Не удалось связаться с сервером. Проверьте соединение и повторите попытку.");
+      }
+    } finally {
+      setIsSessionRestoring(false);
+    }
+  }, []);
+
   const handleAdminAccessDenied = useCallback(() => {
-    void syncSession().catch(() => api.clearSession());
+    // A temporary backend/network failure must not log the user out.
+    // Confirmed token invalidation is already handled inside api.request().
+    void syncSession().catch(() => undefined);
   }, [syncSession]);
 
   useEffect(() => {
@@ -2272,15 +2337,19 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    void restoreSession();
+  }, [restoreSession]);
+
+  useEffect(() => {
     const listener = (event: Event) => setSession((event as CustomEvent<Session | null>).detail);
     window.addEventListener("star327-session", listener);
     return () => window.removeEventListener("star327-session", listener);
   }, []);
 
   useEffect(() => {
-    if (!session || session.requires_discord_verification || session.requires_password_setup) return;
+    if (isSessionRestoring || !session || session.requires_discord_verification || session.requires_password_setup) return;
     const updateSession = () => {
-      void syncSession().catch(() => api.clearSession());
+      void syncSession().catch(() => undefined);
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") updateSession();
@@ -2293,13 +2362,14 @@ export function App() {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [session?.profile.nickname, session?.requires_discord_verification, session?.requires_password_setup, syncSession]);
+  }, [isSessionRestoring, session?.profile.nickname, session?.requires_discord_verification, session?.requires_password_setup, syncSession]);
 
   useEffect(() => {
+    if (isSessionRestoring) return;
     if (isAdminOnlyRoute && (!session || !session.is_admin)) {
       window.location.hash = "#/";
     }
-  }, [isAdminOnlyRoute, session]);
+  }, [isAdminOnlyRoute, isSessionRestoring, session]);
 
   useEffect(() => {
     if (!session || !isArchiveRoute || isAdminRoute || isHomeEditRoute || docRouteId || docEditRouteId) return;
@@ -2329,20 +2399,27 @@ export function App() {
   async function logout() {
     try {
       await api.logout();
-    } finally {
       setIsLogoutConfirmationOpen(false);
       setSession(null);
+      setLogoutError("");
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : "Не удалось завершить сессию");
     }
   }
 
   function requestLogout() {
     setIsMobileMenuOpen(false);
+    setLogoutError("");
     setIsLogoutConfirmationOpen(true);
   }
 
   function selectView(nextView: View) {
     setView(nextView);
     setIsMobileMenuOpen(false);
+  }
+
+  if (isSessionRestoring || sessionRestoreError) {
+    return <SessionLoadingScreen error={sessionRestoreError} onRetry={() => void restoreSession()} />;
   }
 
   if (session?.requires_discord_verification) {
@@ -2451,6 +2528,7 @@ export function App() {
             </div>
             <div className="access-modal-body">
               <p>Для повторного входа потребуется авторизация.</p>
+              {logoutError && <div className="alert">{logoutError}</div>}
               <div className="form-actions">
                 <button className="secondary-button" onClick={() => setIsLogoutConfirmationOpen(false)}>Отмена</button>
                 <button className="danger-button" onClick={logout}><LogOut size={18} /> Выйти</button>
