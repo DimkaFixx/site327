@@ -1084,18 +1084,18 @@ summary {
   transform: none;
 }
 
-@media (min-width: 761px) {
+@media (min-width: 980px) {
   .document-reading-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(170px, 220px);
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 18px;
     align-items: start;
   }
 
   .document-outline {
     position: sticky;
     top: 20px;
-    width: 100%;
+    width: 220px;
     max-height: calc(100vh - 48px);
     margin: 0;
     overflow: auto;
@@ -2005,6 +2005,56 @@ summary {
 
   h1 {
     font-size: 36px;
+  }
+}
+
+/* On tablets the article stays full-width; the outline opens from a compact button. */
+@media (min-width: 761px) and (max-width: 979px) {
+  .document-reading-layout > .document-outline {
+    display: none;
+  }
+
+  .mobile-outline-toggle-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 32;
+    display: grid;
+    width: 100dvw;
+    height: 100dvh;
+    justify-items: end;
+    align-items: start;
+    padding: 18px;
+    pointer-events: none;
+  }
+
+  .mobile-outline-toggle {
+    position: static;
+    display: inline-grid !important;
+    margin-top: 76px;
+    pointer-events: auto;
+  }
+
+  .mobile-outline-layer.is-open {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    width: 100dvw;
+    height: 100dvh;
+    padding: 24px;
+    place-items: center;
+    pointer-events: none;
+  }
+
+  .mobile-outline-layer.is-open .mobile-document-outline {
+    position: static;
+    display: block;
+    width: min(420px, calc(100dvw - 48px));
+    max-height: calc(100dvh - 48px);
+    margin: 0;
+    overflow: auto;
+    pointer-events: auto;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
   }
 }
 
