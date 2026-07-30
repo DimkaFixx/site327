@@ -1,7 +1,7 @@
 import { BadgeCheck, BookOpenText, Check, ClipboardList, Copy, ExternalLink, GripVertical, ImageUp, LoaderCircle, LogOut, Menu, Package, Search, Shield, UserRound, UsersRound, X } from "lucide-react";
 import React, { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, SetStateAction } from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
 import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentItem, EquipmentResponse, FormItem, FormTab, HomePage, ManualRegulation, MarkdownSettings, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
@@ -177,6 +177,11 @@ function MarkdownLink({ href, children, node: _node, ...props }: ComponentPropsW
 }
 
 const markdownContentComponents = { code: MarkdownCode, pre: MarkdownPre, a: MarkdownLink };
+const markdownColorUrlPattern = /^color:(red|scarlet|orange|amber|yellow|lime|green|teal|cyan|blue|indigo|violet|purple|pink)$/;
+
+function markdownUrlTransform(url: string) {
+  return markdownColorUrlPattern.test(url) ? url : defaultUrlTransform(url);
+}
 
 function MarkdownWithOutline({ content }: { content: string }) {
   const outline = useMemo(() => extractDocumentOutline(content), [content]);
@@ -194,7 +199,7 @@ function MarkdownWithOutline({ content }: { content: string }) {
     [headingIdsByLine],
   );
 
-  return <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>{content || "_Документ пустой._"}</ReactMarkdown>;
+  return <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={markdownUrlTransform}>{content || "_Документ пустой._"}</ReactMarkdown>;
 }
 
 function parseList(value: string) {
@@ -411,7 +416,7 @@ function HomeScreen({ session }: { session: Session | null }) {
       {!error && !page && <div className="empty">Загрузка главной...</div>}
       {page && (
         <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents} urlTransform={markdownUrlTransform}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
         </article>
       )}
     </main>
@@ -1146,7 +1151,7 @@ function DocEditPage({ docId }: { docId: string }) {
               </div>
               {docDraft.document_type === "link" ? (
                 <p>{docDraft.url || "Укажите ссылку на внешний документ."}</p>
-              ) : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents}>{docDraft.content || "_Документ пустой._"}</ReactMarkdown>}
+              ) : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents} urlTransform={markdownUrlTransform}>{docDraft.content || "_Документ пустой._"}</ReactMarkdown>}
             </article>
           </section>
         </form>
@@ -1401,7 +1406,7 @@ function HomeEditPage() {
                 <span>Главная</span>
                 <h2>{homePage.title || "Без названия"}</h2>
               </div>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents}>{homePage.content || "_Главная страница пустая._"}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents} urlTransform={markdownUrlTransform}>{homePage.content || "_Главная страница пустая._"}</ReactMarkdown>
             </article>
           </section>
         </form>
