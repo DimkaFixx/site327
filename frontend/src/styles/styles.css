@@ -1085,16 +1085,15 @@ summary {
 }
 
 @media (min-width: 980px) {
-  .document-page.shell {
-    width: min(1180px, calc(100% - 32px));
-    max-width: 1180px;
-  }
-
   .document-reading-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 220px;
     gap: 18px;
     align-items: start;
+  }
+
+  .document-page .document-reading-layout {
+    width: calc(100% + 238px);
   }
 
   .document-outline {
