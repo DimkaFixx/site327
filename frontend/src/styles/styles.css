@@ -1084,18 +1084,18 @@ summary {
   transform: none;
 }
 
-@media (min-width: 980px) {
+@media (min-width: 761px) {
   .document-reading-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 220px;
-    gap: 18px;
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 220px);
+    gap: 14px;
     align-items: start;
   }
 
   .document-outline {
     position: sticky;
     top: 20px;
-    width: 220px;
+    width: 100%;
     max-height: calc(100vh - 48px);
     margin: 0;
     overflow: auto;
@@ -1174,6 +1174,25 @@ summary {
 .markdown-document a {
   color: var(--accent);
 }
+
+.markdown-color {
+  font-weight: inherit;
+}
+
+.markdown-color-red { color: #fca5a5; }
+.markdown-color-scarlet { color: #fb7185; }
+.markdown-color-orange { color: #fdba74; }
+.markdown-color-amber { color: #fcd34d; }
+.markdown-color-yellow { color: #fef08a; }
+.markdown-color-lime { color: #d9f99d; }
+.markdown-color-green { color: #86efac; }
+.markdown-color-teal { color: #99f6e4; }
+.markdown-color-cyan { color: #a5f3fc; }
+.markdown-color-blue { color: #93c5fd; }
+.markdown-color-indigo { color: #a5b4fc; }
+.markdown-color-violet { color: #c4b5fd; }
+.markdown-color-purple { color: #e9d5ff; }
+.markdown-color-pink { color: #f9a8d4; }
 
 .markdown-document img {
   display: block;
@@ -1613,6 +1632,48 @@ summary {
   font-family: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Consolas, monospace;
   line-height: 1.55;
 }
+
+.markdown-editor-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.markdown-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.markdown-editor-toolbar > span {
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.markdown-color-button {
+  width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.markdown-color-button.markdown-color-red { background: #ef4444; }
+.markdown-color-button.markdown-color-scarlet { background: #f43f5e; }
+.markdown-color-button.markdown-color-orange { background: #f97316; }
+.markdown-color-button.markdown-color-amber { background: #f59e0b; }
+.markdown-color-button.markdown-color-yellow { background: #facc15; }
+.markdown-color-button.markdown-color-lime { background: #a3e635; }
+.markdown-color-button.markdown-color-green { background: #22c55e; }
+.markdown-color-button.markdown-color-teal { background: #14b8a6; }
+.markdown-color-button.markdown-color-cyan { background: #06b6d4; }
+.markdown-color-button.markdown-color-blue { background: #3b82f6; }
+.markdown-color-button.markdown-color-indigo { background: #6366f1; }
+.markdown-color-button.markdown-color-violet { background: #8b5cf6; }
+.markdown-color-button.markdown-color-purple { background: #a855f7; }
+.markdown-color-button.markdown-color-pink { background: #ec4899; }
 
 .page-editor {
   width: 100%;

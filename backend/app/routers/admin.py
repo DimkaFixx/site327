@@ -52,7 +52,7 @@ async def admin_upload_image(request: Request, file: UploadFile = File(...)) -> 
         "image/png": ("PNG", ".png"),
         "image/jpeg": ("JPEG", ".jpg"),
         "image/webp": ("WEBP", ".webp"),
-        "image/gif": ("PNG", ".png"),
+        "image/gif": ("GIF", ".gif"),
     }
     output_format = format_by_type.get(file.content_type)
     if output_format is None:
@@ -69,18 +69,23 @@ async def admin_upload_image(request: Request, file: UploadFile = File(...)) -> 
                 if image.width * image.height > settings.max_upload_pixels:
                     raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Слишком большое разрешение изображения")
                 image.verify()
-            with Image.open(BytesIO(content)) as image:
-                if image.width * image.height > settings.max_upload_pixels:
-                    raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Слишком большое разрешение изображения")
-                image = ImageOps.exif_transpose(image)
-                if output_format[0] == "JPEG" and image.mode != "RGB":
-                    image = image.convert("RGB")
-                elif image.mode not in ("RGB", "RGBA"):
-                    image = image.convert("RGBA" if output_format[0] in {"PNG", "WEBP"} else "RGB")
-                output = BytesIO()
-                save_kwargs = {"quality": 88} if output_format[0] in {"JPEG", "WEBP"} else {}
-                image.save(output, format=output_format[0], **save_kwargs)
-                sanitized_content = output.getvalue()
+            if output_format[0] == "GIF":
+                # Re-encoding GIF as a still PNG discards its animation.
+                # The verified original is retained so pasted GIFs stay animated.
+                sanitized_content = content
+            else:
+                with Image.open(BytesIO(content)) as image:
+                    if image.width * image.height > settings.max_upload_pixels:
+                        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Слишком большое разрешение изображения")
+                    image = ImageOps.exif_transpose(image)
+                    if output_format[0] == "JPEG" and image.mode != "RGB":
+                        image = image.convert("RGB")
+                    elif image.mode not in ("RGB", "RGBA"):
+                        image = image.convert("RGBA" if output_format[0] in {"PNG", "WEBP"} else "RGB")
+                    output = BytesIO()
+                    save_kwargs = {"quality": 88} if output_format[0] in {"JPEG", "WEBP"} else {}
+                    image.save(output, format=output_format[0], **save_kwargs)
+                    sanitized_content = output.getvalue()
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Файл не является корректным изображением") from exc
 

@@ -163,6 +163,21 @@ function MarkdownPre({ children, node: _node, ...props }: ComponentPropsWithoutR
   );
 }
 
+const markdownTextColors = [
+  "red", "scarlet", "orange", "amber", "yellow", "lime", "green",
+  "teal", "cyan", "blue", "indigo", "violet", "purple", "pink",
+] as const;
+
+function MarkdownLink({ href, children, node: _node, ...props }: ComponentPropsWithoutRef<"a"> & { children?: ReactNode; node?: unknown }) {
+  const color = href?.startsWith("color:") ? href.slice("color:".length) : "";
+  if (markdownTextColors.includes(color as typeof markdownTextColors[number])) {
+    return <span className={`markdown-color markdown-color-${color}`}>{children}</span>;
+  }
+  return <a href={href} {...props}>{children}</a>;
+}
+
+const markdownContentComponents = { code: MarkdownCode, pre: MarkdownPre, a: MarkdownLink };
+
 function MarkdownWithOutline({ content }: { content: string }) {
   const outline = useMemo(() => extractDocumentOutline(content), [content]);
   const headingIdsByLine = useMemo(() => new Map(outline.map((item) => [item.line, item.id])), [outline]);
@@ -174,8 +189,7 @@ function MarkdownWithOutline({ content }: { content: string }) {
       h4: (props: MarkdownHeadingProps) => <MarkdownHeading level={4} headingIdsByLine={headingIdsByLine} {...props} />,
       h5: (props: MarkdownHeadingProps) => <MarkdownHeading level={5} headingIdsByLine={headingIdsByLine} {...props} />,
       h6: (props: MarkdownHeadingProps) => <MarkdownHeading level={6} headingIdsByLine={headingIdsByLine} {...props} />,
-      code: MarkdownCode,
-      pre: MarkdownPre,
+      ...markdownContentComponents,
     }),
     [headingIdsByLine],
   );
@@ -397,7 +411,7 @@ function HomeScreen({ session }: { session: Session | null }) {
       {!error && !page && <div className="empty">Загрузка главной...</div>}
       {page && (
         <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: MarkdownCode, pre: MarkdownPre }}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents}>{page.content || "_Главная страница пустая._"}</ReactMarkdown>
         </article>
       )}
     </main>
@@ -1132,7 +1146,7 @@ function DocEditPage({ docId }: { docId: string }) {
               </div>
               {docDraft.document_type === "link" ? (
                 <p>{docDraft.url || "Укажите ссылку на внешний документ."}</p>
-              ) : <ReactMarkdown remarkPlugins={[remarkGfm]}>{docDraft.content || "_Документ пустой._"}</ReactMarkdown>}
+              ) : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents}>{docDraft.content || "_Документ пустой._"}</ReactMarkdown>}
             </article>
           </section>
         </form>
@@ -1211,15 +1225,31 @@ function MarkdownEditorTextarea({
     void uploadMarkdownImage(file, start, end);
   }
 
+  function applyTextColor(color: typeof markdownTextColors[number]) {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = value.slice(start, end);
+    if (!selected) return;
+    insertText(`[${selected}](color:${color})`, start, end, textarea.scrollTop);
+  }
+
   return (
-    <textarea
-      ref={textareaRef}
-      className="markdown-editor"
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      onPaste={pasteImage}
-      placeholder={"# Заголовок\n\nТекст документа.\n\n| Колонка | Значение |\n| --- | --- |\n| Пример | Данные |\n\n![Описание](https://...)"}
-    />
+    <div className="markdown-editor-wrap">
+      <div className="markdown-editor-toolbar" aria-label="Цвет выделенного текста">
+        <span>Цвет текста</span>
+        {markdownTextColors.map((color) => <button key={color} className={`markdown-color-button markdown-color-${color}`} type="button" title={`Покрасить выделенный текст: ${color}`} aria-label={`Покрасить выделенный текст: ${color}`} onMouseDown={(event) => event.preventDefault()} onClick={() => applyTextColor(color)} />)}
+      </div>
+      <textarea
+        ref={textareaRef}
+        className="markdown-editor"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onPaste={pasteImage}
+        placeholder={"# Заголовок\n\nТекст документа.\n\n| Колонка | Значение |\n| --- | --- |\n| Пример | Данные |\n\n![Описание](https://...)"}
+      />
+    </div>
   );
 }
 
@@ -1371,7 +1401,7 @@ function HomeEditPage() {
                 <span>Главная</span>
                 <h2>{homePage.title || "Без названия"}</h2>
               </div>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{homePage.content || "_Главная страница пустая._"}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownContentComponents}>{homePage.content || "_Главная страница пустая._"}</ReactMarkdown>
             </article>
           </section>
         </form>
