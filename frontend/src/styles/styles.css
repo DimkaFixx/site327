@@ -1796,6 +1796,7 @@ summary {
   .mobile-outline-toggle {
     position: static;
     display: inline-grid !important;
+    margin-top: 122px;
     pointer-events: auto;
   }
 
