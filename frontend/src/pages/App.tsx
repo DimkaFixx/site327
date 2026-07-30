@@ -1168,7 +1168,9 @@ function MarkdownEditorTextarea({
   setValue: Dispatch<SetStateAction<string>>;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const gifInputRef = useRef<HTMLInputElement | null>(null);
   const pendingSelectionRef = useRef<{ position: number; scrollTop: number } | null>(null);
+  const gifInsertSelectionRef = useRef<{ start: number; end: number } | null>(null);
 
   useLayoutEffect(() => {
     const selection = pendingSelectionRef.current;
@@ -1240,11 +1242,29 @@ function MarkdownEditorTextarea({
     insertText(`[${selected}](color:${color})`, start, end, textarea.scrollTop);
   }
 
+  function chooseGif() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    gifInsertSelectionRef.current = { start: textarea.selectionStart, end: textarea.selectionEnd };
+    gifInputRef.current?.click();
+  }
+
+  function insertGif(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    const selection = gifInsertSelectionRef.current;
+    event.target.value = "";
+    if (!file || !selection) return;
+    gifInsertSelectionRef.current = null;
+    void uploadMarkdownImage(file, selection.start, selection.end);
+  }
+
   return (
     <div className="markdown-editor-wrap">
       <div className="markdown-editor-toolbar" aria-label="Цвет выделенного текста">
         <span>Цвет текста</span>
         {markdownTextColors.map((color) => <button key={color} className={`markdown-color-button markdown-color-${color}`} type="button" title={`Покрасить выделенный текст: ${color}`} aria-label={`Покрасить выделенный текст: ${color}`} onMouseDown={(event) => event.preventDefault()} onClick={() => applyTextColor(color)} />)}
+        <button className="secondary-button" type="button" onMouseDown={(event) => event.preventDefault()} onClick={chooseGif}>Вставить GIF</button>
+        <input ref={gifInputRef} className="visually-hidden" type="file" accept="image/gif" onChange={insertGif} />
       </div>
       <textarea
         ref={textareaRef}
