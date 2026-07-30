@@ -10,7 +10,7 @@ from app.utils.security import require_ready_session
 
 
 router = APIRouter(prefix="/api")
-UPLOAD_FILENAME_RE = re.compile(r"^[a-f0-9]{32}\.(png|jpg|jpeg|webp)$")
+UPLOAD_FILENAME_RE = re.compile(r"^[a-f0-9]{32}\.(png|jpg|jpeg|webp|gif)$")
 
 
 def _upload_path(filename: str) -> Path:
