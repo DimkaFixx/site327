@@ -3,8 +3,9 @@ import logging
 from contextlib import suppress
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.repositories.database import init_db
@@ -33,9 +34,15 @@ app.add_middleware(
 
 @app.middleware("http")
 async def csrf_middleware(request, call_next):
-    csrf_exempt_paths = {"/api/auth/login"}
+    # Refresh validates Origin in its own handler.  Exempting it here lets
+    # sessions created before the CSRF cookie was introduced recover once and
+    # receive a fresh CSRF cookie instead of being trapped in an auth loop.
+    csrf_exempt_paths = {"/api/auth/login", "/api/auth/refresh"}
     if request.method in {"POST", "PATCH", "DELETE"} and request.url.path not in csrf_exempt_paths:
-        verify_csrf(request)
+        try:
+            verify_csrf(request)
+        except HTTPException as exc:
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
     return await call_next(request)
 
 app.include_router(health.router)

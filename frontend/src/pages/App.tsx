@@ -2315,9 +2315,11 @@ export function App() {
     setIsSessionRestoring(true);
     setSessionRestoreError("");
     try {
-      // Validate the short-lived access cookie first. The API refreshes it
-      // only when needed, avoiding needless refresh-token rotation on reload.
-      const restored = await api.me();
+      const hasCsrfCookie = document.cookie.split(";").some((item) => item.trim().startsWith("star327_csrf="));
+      // Sessions created before CSRF cookies were introduced need one refresh
+      // to receive that cookie. Otherwise validate the access cookie first and
+      // avoid needless refresh-token rotation on reload.
+      const restored = hasCsrfCookie ? await api.me() : await api.refreshSession();
       api.saveSession(restored);
       setSession(restored);
       if (!window.location.hash || window.location.hash === "#/") window.location.hash = "#/archive";
