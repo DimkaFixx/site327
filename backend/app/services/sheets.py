@@ -261,7 +261,10 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
         tech_sheet_start = len(labels)
 
     left_nickname = _find_label_index(headings, "Позывной", competencies_start)
-    right_nickname = _find_label_index(headings, "Позывной", tech_access_start + 1)
+    # In the current sheet the section marker and the right-hand «Позывной»
+    # share the same column. Start from the marker itself so CD and УДТ-1 do
+    # not get skipped together with that column.
+    right_nickname = _find_label_index(headings, "Позывной", tech_access_start)
     attestation_row = _competency_row(rows, left_nickname or competencies_start, soldier.nickname)
     tech_row = _competency_row(rows, right_nickname or tech_access_start, soldier.nickname)
 
