@@ -1011,9 +1011,13 @@ function DocPage({ docId }: { docId: string }) {
             </article>
             {doc.document_type !== "link" && <DocumentOutline outline={outline} isOpen={false} onNavigate={() => undefined} />}
           </div>
-          {doc.document_type !== "link" && outline.length > 0 && <>
-            <button className="mobile-outline-toggle icon-button secondary-button" type="button" onClick={() => setIsOutlineOpen((current) => !current)} aria-label="Открыть содержание" aria-expanded={isOutlineOpen}><BookOpenText size={18} /></button>
-            <DocumentOutline outline={outline} isOpen={isOutlineOpen} onNavigate={() => setIsOutlineOpen(false)} mobile />
+          {doc.document_type !== "link" && <>
+            <div className="mobile-outline-toggle-layer">
+              <button className="mobile-outline-toggle icon-button secondary-button" type="button" onClick={() => setIsOutlineOpen((current) => !current)} aria-label="Открыть содержание" aria-expanded={isOutlineOpen}><BookOpenText size={18} /></button>
+            </div>
+            <div className={`mobile-outline-layer${isOutlineOpen ? " is-open" : ""}`}>
+              <DocumentOutline outline={outline} isOpen={isOutlineOpen} onNavigate={() => setIsOutlineOpen(false)} mobile />
+            </div>
           </>}
         </>
       )}
