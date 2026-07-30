@@ -992,34 +992,39 @@ function DocPage({ docId }: { docId: string }) {
       {error && <div className="alert">{error}</div>}
       {!error && !doc && <div className="empty">Загрузка документа...</div>}
       {doc && (
-        <div className="document-reading-layout">
-          <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
-            <div className="document-header">
-              <span>{audienceLabel(doc.audience)}</span>
-              <h2>{doc.title}</h2>
-              {doc.description && <p>{doc.description}</p>}
-              {outline.length > 0 && <button className="mobile-outline-toggle icon-button secondary-button" type="button" onClick={() => setIsOutlineOpen((current) => !current)} aria-label="Открыть содержание" aria-expanded={isOutlineOpen}><BookOpenText size={18} /></button>}
-            </div>
-            {doc.document_type === "link" ? (
-              <>
-                <a className="ghost-link document-external-link" href={doc.url} target="_blank" rel="noreferrer">Открыть в новой вкладке <ExternalLink size={16} /></a>
-                <iframe className="document-link-frame" src={doc.url} title={doc.title} sandbox="allow-forms allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer">
-                  Загрузка...
-                </iframe>
-              </>
-            ) : <MarkdownWithOutline content={doc.content} />}
-          </article>
-          {doc.document_type !== "link" && <DocumentOutline outline={outline} isOpen={isOutlineOpen} onNavigate={() => setIsOutlineOpen(false)} />}
-        </div>
+        <>
+          <div className="document-reading-layout">
+            <article className="markdown-document full-document" style={markdownSettingsStyle(markdownSettings)}>
+              <div className="document-header">
+                <span>{audienceLabel(doc.audience)}</span>
+                <h2>{doc.title}</h2>
+                {doc.description && <p>{doc.description}</p>}
+              </div>
+              {doc.document_type === "link" ? (
+                <>
+                  <a className="ghost-link document-external-link" href={doc.url} target="_blank" rel="noreferrer">Открыть в новой вкладке <ExternalLink size={16} /></a>
+                  <iframe className="document-link-frame" src={doc.url} title={doc.title} sandbox="allow-forms allow-scripts allow-same-origin allow-popups" referrerPolicy="no-referrer">
+                    Загрузка...
+                  </iframe>
+                </>
+              ) : <MarkdownWithOutline content={doc.content} />}
+            </article>
+            {doc.document_type !== "link" && <DocumentOutline outline={outline} isOpen={false} onNavigate={() => undefined} />}
+          </div>
+          {doc.document_type !== "link" && outline.length > 0 && <>
+            <button className="mobile-outline-toggle icon-button secondary-button" type="button" onClick={() => setIsOutlineOpen((current) => !current)} aria-label="Открыть содержание" aria-expanded={isOutlineOpen}><BookOpenText size={18} /></button>
+            <DocumentOutline outline={outline} isOpen={isOutlineOpen} onNavigate={() => setIsOutlineOpen(false)} mobile />
+          </>}
+        </>
       )}
     </main>
   );
 }
 
-function DocumentOutline({ outline, isOpen, onNavigate }: { outline: DocumentOutlineItem[]; isOpen: boolean; onNavigate: () => void }) {
+function DocumentOutline({ outline, isOpen, onNavigate, mobile = false }: { outline: DocumentOutlineItem[]; isOpen: boolean; onNavigate: () => void; mobile?: boolean }) {
   if (!outline.length) return null;
   return (
-    <aside className={`document-outline${isOpen ? " is-open" : ""}`} aria-label="Содержание документа">
+    <aside className={`document-outline${mobile ? " mobile-document-outline" : ""}${isOpen ? " is-open" : ""}`} aria-label="Содержание документа">
       <strong>На этой странице</strong>
       <nav>
         {outline.map((item) => (

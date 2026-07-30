@@ -1017,6 +1017,10 @@ summary {
   display: none;
 }
 
+.mobile-document-outline {
+  display: none;
+}
+
 .document-outline {
   width: 100%;
   margin-top: 18px;
@@ -1779,18 +1783,18 @@ summary {
     display: inline-grid;
   }
 
-  .document-outline {
+  .document-reading-layout > .document-outline {
     display: none;
   }
 
-  .document-outline.is-open {
+  .mobile-document-outline.is-open {
     position: fixed;
     top: 50%;
     left: 50%;
     z-index: 30;
     display: block;
     width: min(320px, calc(100vw - 32px));
-    max-height: min(70vh, 620px);
+    max-height: calc(100dvh - 32px);
     margin: 0;
     overflow: auto;
     transform: translate(-50%, -50%);
