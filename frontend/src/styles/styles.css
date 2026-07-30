@@ -1084,16 +1084,12 @@ summary {
   transform: none;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 980px) {
   .document-reading-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 220px;
     gap: 18px;
     align-items: start;
-  }
-
-  .document-page .document-reading-layout {
-    width: calc(100% + 238px);
   }
 
   .document-outline {
@@ -2013,7 +2009,7 @@ summary {
 }
 
 /* On tablets the article stays full-width; the outline opens from a compact button. */
-@media (min-width: 761px) and (max-width: 1199px) {
+@media (min-width: 761px) and (max-width: 979px) {
   .document-reading-layout > .document-outline {
     display: none;
   }
