@@ -75,14 +75,6 @@ def _pick(row: dict[str, Any], field: str) -> str:
     return ""
 
 
-def _fallback_nickname(row: dict[str, Any]) -> str:
-    for value in row.values():
-        text = _clean_value(value)
-        if text:
-            return text
-    return ""
-
-
 def _find_header_index(rows: list[list[str]]) -> int:
     nickname_aliases = HEADER_ALIASES["nickname"]
     for index, row in enumerate(rows):
@@ -136,7 +128,10 @@ def _row_to_soldier(index: int, row: dict[str, Any]) -> Soldier | None:
             continue
         compact_row[_display_header(original_key)] = _clean_value(value)
 
-    nickname = _pick(compact_row, "nickname") or _fallback_nickname(compact_row)
+    # Only the explicit nickname/callsign column identifies a soldier.  Using
+    # the first non-empty cell as a fallback turns values from newly added
+    # columns (for example FALSE in «Наг») into fake soldier profiles.
+    nickname = _pick(compact_row, "nickname")
     if not nickname:
         return None
 
@@ -315,7 +310,10 @@ def _soldier_from_cache(row: dict[str, Any]) -> Soldier:
 def fetch_soldiers() -> list[Soldier]:
     with db_session() as db:
         rows = db.execute(select(soldiers_cache).order_by(soldiers_cache.c.id)).mappings().all()
-        return [_soldier_from_cache(dict(row)) for row in rows]
+        soldiers = [_soldier_from_cache(dict(row)) for row in rows]
+        # Hide any invalid cache entries created by older imports immediately;
+        # the next composition sync will remove them from the cache entirely.
+        return [soldier for soldier in soldiers if _pick(soldier.raw, "nickname")]
 
 
 def find_soldier(nickname: str) -> Soldier | None:
@@ -326,7 +324,10 @@ def find_soldier(nickname: str) -> Soldier | None:
             .mappings()
             .first()
         )
-        return _soldier_from_cache(dict(row)) if row else None
+        if not row:
+            return None
+        soldier = _soldier_from_cache(dict(row))
+        return soldier if _pick(soldier.raw, "nickname") else None
 
 
 def has_cached_soldiers() -> bool:

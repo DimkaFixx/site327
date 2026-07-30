@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import suppress
 from pathlib import Path
 
@@ -8,13 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.repositories.database import init_db
 from app.routers import admin, auth, docs, forms, health, home, soldiers, uploads
-from app.services.sheets import has_cached_competencies, has_cached_soldiers, seconds_until_next_sync, sync_competencies_from_sheet, sync_soldiers_from_sheet
+from app.services.sheets import has_cached_competencies, has_cached_soldiers, sync_competencies_from_sheet, sync_soldiers_from_sheet
 from app.utils.security import verify_csrf
 
 
 settings = get_settings()
 app = FastAPI(title="327 Star Corp API", version="0.1.0")
 sync_task: asyncio.Task | None = None
+logger = logging.getLogger(__name__)
+TABLE_SYNC_INTERVAL_SECONDS = 5 * 60
 
 uploads_path = Path(settings.uploads_path)
 uploads_path.mkdir(parents=True, exist_ok=True)
@@ -49,12 +52,8 @@ app.include_router(admin.router)
 async def startup() -> None:
     global sync_task
     init_db()
-    if not has_cached_soldiers():
-        with suppress(Exception):
-            await sync_soldiers_from_sheet()
-    if not has_cached_competencies():
-        with suppress(Exception):
-            await sync_competencies_from_sheet()
+    if not has_cached_soldiers() or not has_cached_competencies():
+        await sync_tables()
     sync_task = asyncio.create_task(soldiers_sync_loop())
 
 
@@ -68,8 +67,14 @@ async def shutdown() -> None:
 
 async def soldiers_sync_loop() -> None:
     while True:
-        await asyncio.sleep(seconds_until_next_sync())
-        with suppress(Exception):
-            await sync_soldiers_from_sheet()
-        with suppress(Exception):
-            await sync_competencies_from_sheet()
+        await asyncio.sleep(TABLE_SYNC_INTERVAL_SECONDS)
+        await sync_tables()
+
+
+async def sync_tables() -> None:
+    try:
+        soldiers_count = await sync_soldiers_from_sheet()
+        competencies_rows = await sync_competencies_from_sheet()
+        logger.info("Таблицы обновлены автоматически: состав — %s, компетенции — %s строк", soldiers_count, competencies_rows)
+    except Exception:
+        logger.exception("Не удалось обновить таблицы автоматически")
