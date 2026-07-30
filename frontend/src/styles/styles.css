@@ -225,12 +225,6 @@ button:disabled {
   padding: 28px 0 48px;
 }
 
-/* Reading pages benefit from the full desktop workspace. */
-.document-page.shell {
-  width: calc(100% - 32px);
-  max-width: none;
-}
-
 .topbar,
 .top-actions,
 .nav,
