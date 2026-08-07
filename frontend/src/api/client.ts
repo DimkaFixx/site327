@@ -196,8 +196,8 @@ export const api = {
   deleteVerificationCodes: (nickname: string) =>
     request<{ deleted: number }>(`/api/admin/verification-codes/${encodeURIComponent(nickname)}`, { method: "DELETE" }),
   adminAudit: () => request<AuditEventItem[]>("/api/admin/audit"),
-  syncSoldiersAndEquipment: () => request<{ soldiers: number }>("/api/admin/soldiers-sync", { method: "POST" }),
-  syncCompetencies: () => request<{ rows: number }>("/api/admin/competencies-sync", { method: "POST" }),
+  syncSoldiersAndEquipment: () => request<{ soldiers: number; online_rows: number }>("/api/admin/soldiers-sync", { method: "POST" }),
+  syncCompetencies: () => request<{ rows: number; medals_rows: number }>("/api/admin/competencies-sync", { method: "POST" }),
   regulations: () => request<RegulationsStore>("/api/admin/regulations"),
   updateRegulations: (payload: RegulationsStore) => request<RegulationsStore>("/api/admin/regulations", { method: "PUT", body: JSON.stringify(payload) }),
   updateHome: (payload: HomePage) =>

@@ -79,11 +79,17 @@ async def soldiers_sync_loop() -> None:
 
 
 async def sync_tables() -> None:
-    try:
-        soldiers_count = await sync_soldiers_from_sheet()
-        competencies_rows = await sync_competencies_from_sheet()
-        online_rows = await sync_online_from_sheet()
-        medals_rows = await sync_medals_from_sheet()
-        logger.info("Таблицы обновлены автоматически: состав — %s, компетенции — %s строк, онлайн — %s строк, медали — %s строк", soldiers_count, competencies_rows, online_rows, medals_rows)
-    except Exception:
-        logger.exception("Не удалось обновить таблицы автоматически")
+    successful: list[str] = []
+    for name, sync_job in (
+        ("состав", sync_soldiers_from_sheet),
+        ("компетенции", sync_competencies_from_sheet),
+        ("онлайн", sync_online_from_sheet),
+        ("медали", sync_medals_from_sheet),
+    ):
+        try:
+            result = await sync_job()
+            successful.append(f"{name} — {result} строк")
+        except Exception:
+            logger.exception("Не удалось автоматически обновить лист: %s", name)
+    if successful:
+        logger.info("Таблицы обновлены автоматически: %s", ", ".join(successful))

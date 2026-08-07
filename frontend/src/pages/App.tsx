@@ -1638,7 +1638,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     try {
       const [soldiers, competencies] = await Promise.all([api.syncSoldiersAndEquipment(), api.syncCompetencies()]);
       await refresh();
-      setSyncMessage(`Обновлены: состав — ${soldiers.soldiers}, компетенции — ${competencies.rows} строк.`);
+      setSyncMessage(`Обновлены: состав — ${soldiers.soldiers}, онлайн — ${soldiers.online_rows} строк, компетенции — ${competencies.rows} строк, медали — ${competencies.medals_rows} строк.`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Не удалось обновить данные из Google Sheets");
     } finally {
