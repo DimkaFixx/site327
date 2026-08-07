@@ -588,10 +588,69 @@ function PasswordSetup({ onComplete }: { session: Session; onComplete: (session:
   );
 }
 
+function formatOnlineHours(value: number) {
+  return `${value.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ч`;
+}
+
+function OnlineChart({ online }: { online: Soldier["online"] | undefined }) {
+  const [activeDay, setActiveDay] = useState(0);
+  const days = online?.days ?? [];
+  const weekly = online?.weekly ?? {};
+  const currentDay = days[Math.min(activeDay, Math.max(days.length - 1, 0))];
+  const chartWidth = 720;
+  const chartHeight = 180;
+  const padding = { top: 16, right: 16, bottom: 32, left: 42 };
+  const maxHours = Math.max(1, ...days.map((day) => day.total_hours));
+  const point = (day: typeof days[number], index: number) => {
+    const usableWidth = chartWidth - padding.left - padding.right;
+    const x = padding.left + (days.length <= 1 ? usableWidth / 2 : index * usableWidth / (days.length - 1));
+    const y = padding.top + (chartHeight - padding.top - padding.bottom) * (1 - day.total_hours / maxHours);
+    return `${x},${y}`;
+  };
+
+  return (
+    <div className="online-section">
+      <h3>Онлайн за последние 30 дней</h3>
+      {days.length ? (
+        <>
+          <svg className="online-chart" viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="График онлайна на серверах">
+            <line className="online-chart-axis" x1={padding.left} y1={chartHeight - padding.bottom} x2={chartWidth - padding.right} y2={chartHeight - padding.bottom} />
+            <line className="online-chart-axis" x1={padding.left} y1={padding.top} x2={padding.left} y2={chartHeight - padding.bottom} />
+            <text className="online-chart-label" x="4" y={padding.top + 4}>{formatOnlineHours(maxHours)}</text>
+            <text className="online-chart-label" x="12" y={chartHeight - padding.bottom + 4}>0 ч</text>
+            <polyline className="online-chart-line" points={days.map(point).join(" ")} />
+            {days.map((day, index) => {
+              const [x, y] = point(day, index).split(",");
+              return <circle
+                key={`${day.date}-${index}`}
+                className={`online-chart-point${index === activeDay ? " is-active" : ""}`}
+                cx={x}
+                cy={y}
+                r="5"
+                tabIndex={0}
+                onMouseEnter={() => setActiveDay(index)}
+                onFocus={() => setActiveDay(index)}
+              />;
+            })}
+            {[0, Math.floor((days.length - 1) / 2), days.length - 1].filter((index, position, values) => index >= 0 && values.indexOf(index) === position).map((index) => {
+              const [x] = point(days[index], index).split(",");
+              return <text key={`label-${index}`} className="online-chart-label online-chart-date" x={x} y={chartHeight - 8}>{days[index].date}</text>;
+            })}
+          </svg>
+          {currentDay && <div className="online-chart-tooltip"><strong>{currentDay.date}</strong><span>Сервер 1: {formatOnlineHours(currentDay.server_1_hours)}</span><span>Сервер 2: {formatOnlineHours(currentDay.server_2_hours)}</span><span>Всего: {formatOnlineHours(currentDay.total_hours)}</span></div>}
+        </>
+      ) : <p className="online-empty">Данные об онлайне пока не найдены.</p>}
+      <div className="weekly-stats">
+        {Object.entries(weekly).map(([label, value]) => <p key={label}><span>{label}</span><b>{value || "—"}</b></p>)}
+      </div>
+    </div>
+  );
+}
+
 function ProfileCard({ profile }: { profile: Soldier }) {
   const { details, summary } = splitRawRows(profile);
   const uniqueDetails = details.filter(([key]) => !compactProfileFieldKeys.has(normalizeProfileFieldKey(key)));
-  const hasExpandedInfo = uniqueDetails.length > 0 || summary.length > 0;
+  const hasExpandedInfo = uniqueDetails.length > 0 || summary.length > 0 || Boolean(profile.online?.days.length) || Boolean(Object.keys(profile.online?.weekly ?? {}).length);
   return (
     <section className="profile-card">
       <div>
@@ -609,6 +668,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
       {hasExpandedInfo && (
         <details>
           <summary>Расширенная информация</summary>
+          <OnlineChart online={profile.online} />
           {uniqueDetails.length > 0 && (
             <div className="raw-section">
               <h3>Данные бойца</h3>

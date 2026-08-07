@@ -794,6 +794,106 @@ summary {
   color: var(--accent-soft);
 }
 
+.online-section {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.online-section h3 {
+  margin: 0 0 10px;
+}
+
+.online-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 150px;
+  overflow: visible;
+}
+
+.online-chart-axis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.online-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.online-chart-point {
+  fill: var(--panel);
+  stroke: var(--accent);
+  stroke-width: 3;
+  cursor: pointer;
+  transition: r 120ms ease, fill 120ms ease;
+}
+
+.online-chart-point:hover,
+.online-chart-point:focus,
+.online-chart-point.is-active {
+  fill: var(--accent);
+  outline: none;
+  r: 7;
+}
+
+.online-chart-label {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.online-chart-date {
+  text-anchor: middle;
+}
+
+.online-chart-tooltip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 4px 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.online-chart-tooltip strong {
+  color: var(--accent-soft);
+}
+
+.online-empty {
+  color: var(--muted);
+}
+
+.weekly-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.weekly-stats p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.weekly-stats span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weekly-stats b {
+  color: var(--accent-soft);
+}
+
 .split {
   display: grid;
   grid-template-columns: 310px 1fr;

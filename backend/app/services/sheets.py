@@ -1,6 +1,6 @@
 import asyncio
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -10,8 +10,8 @@ from googleapiclient.errors import HttpError
 from sqlalchemy import delete, func, insert, select
 
 from app.config import get_settings
-from app.repositories.database import competencies_sheet_cache, db_session, soldiers_cache
-from app.schemas.models import CompetenciesResponse, CompetencyItem, Soldier
+from app.repositories.database import competencies_sheet_cache, db_session, online_sheet_cache, soldiers_cache
+from app.schemas.models import CompetenciesResponse, CompetencyItem, OnlineDay, OnlineStats, Soldier
 
 
 HEADER_ALIASES = {
@@ -236,6 +236,140 @@ async def sync_competencies_from_sheet() -> int:
     return len(rows)
 
 
+def fetch_cached_online_rows() -> list[list[Any]]:
+    with db_session() as db:
+        row = db.execute(select(online_sheet_cache.c.rows).where(online_sheet_cache.c.id == 1)).scalar_one_or_none()
+    return row if isinstance(row, list) else []
+
+
+def has_cached_online() -> bool:
+    with db_session() as db:
+        return db.execute(select(online_sheet_cache.c.id).where(online_sheet_cache.c.id == 1)).scalar_one_or_none() is not None
+
+
+async def sync_online_from_sheet() -> int:
+    gid = get_settings().google_online_sheet_gid.strip()
+    if not gid:
+        return 0
+    rows = await asyncio.to_thread(_fetch_sheet_rows_for_gid, gid)
+    with db_session() as db:
+        db.execute(delete(online_sheet_cache).where(online_sheet_cache.c.id == 1))
+        db.execute(insert(online_sheet_cache).values(id=1, rows=rows, synced_at=datetime.utcnow()))
+    return len(rows)
+
+
+def _find_online_date_marker(rows: list[list[Any]]) -> tuple[int, int] | None:
+    for row_index, row in enumerate(rows[:5]):
+        for column_index, value in enumerate(row):
+            if _clean_header(_clean_value(value)) == "дата":
+                return row_index, column_index
+    return None
+
+
+def _online_nickname_column(rows: list[list[Any]], header_end: int, date_column: int) -> int | None:
+    aliases = set(HEADER_ALIASES["nickname"])
+    for row in rows[:header_end]:
+        for index in range(date_column):
+            if _clean_header(_cell(row, index)) in aliases:
+                return index
+    return None
+
+
+def _online_soldier_row(rows: list[list[Any]], nickname: str, data_start: int, date_column: int, nickname_column: int | None) -> list[Any] | None:
+    wanted = _clean_value(nickname).casefold()
+    for row in rows[data_start:]:
+        if nickname_column is not None and _cell(row, nickname_column).casefold() == wanted:
+            return row
+        if nickname_column is None and any(_cell(row, index).casefold() == wanted for index in range(date_column)):
+            return row
+    return None
+
+
+def _online_minutes(value: str) -> int:
+    text = _clean_value(value).replace(" ", "")
+    match = re.fullmatch(r"(\d+):(\d{1,2})", text)
+    if match:
+        return int(match.group(1)) * 60 + int(match.group(2))
+    try:
+        numeric = float(text.replace(",", "."))
+    except ValueError:
+        return 0
+    # Google can return a duration as a fraction of a day when an unformatted
+    # value is requested. Values above one are already hours.
+    return round(numeric * 24 * 60) if 0 < numeric < 1 else round(numeric * 60)
+
+
+def _online_date_sort_key(value: str, fallback: int) -> tuple[int, int, int, int]:
+    match = re.search(r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?", value)
+    if not match:
+        return (0, 0, 0, fallback)
+    day, month = int(match.group(1)), int(match.group(2))
+    year_text = match.group(3)
+    year = int(year_text) + (2000 if year_text and len(year_text) == 2 else 0) if year_text else date.today().year
+    try:
+        parsed = date(year, month, day)
+        if not year_text and parsed > date.today() + timedelta(days=1):
+            parsed = date(year - 1, month, day)
+        return (parsed.year, parsed.month, parsed.day, fallback)
+    except ValueError:
+        return (0, 0, 0, fallback)
+
+
+WEEKLY_METRICS = {
+    "БВ за неделю": ("бвзанеделю", "бвза7д", "бвза7дней"),
+    "Т за неделю": ("тзанеделю", "тза7д", "тза7дней"),
+    "INS за неделю": ("insзанеделю", "insза7д", "insза7дней"),
+    "ПТ за неделю": ("птзанеделю", "птза7д", "птза7дней"),
+    "КМД П за неделю": ("кмдпзанеделю", "кмдпза7д", "кмдпза7дней"),
+    "КМД ОП за неделю": ("кмдопзанеделю", "кмдопза7д", "кмдопза7дней"),
+    "КМД О за неделю": ("кмдозанеделю", "кмдоза7д", "кмдоза7дней"),
+}
+
+
+def _weekly_metric_columns(rows: list[list[Any]], header_end: int, date_column: int) -> dict[str, int]:
+    columns: dict[str, int] = {}
+    for column in range(date_column):
+        heading = "".join(_clean_header(_cell(row, column)).replace(" ", "") for row in rows[:header_end])
+        for title, aliases in WEEKLY_METRICS.items():
+            if title not in columns and any(alias in heading for alias in aliases):
+                columns[title] = column
+    return columns
+
+
+def get_online_for_soldier(soldier: Soldier, cached_rows: list[list[Any]] | None = None) -> OnlineStats:
+    rows = cached_rows if cached_rows is not None else fetch_cached_online_rows()
+    marker = _find_online_date_marker(rows)
+    if marker is None:
+        return OnlineStats()
+    header_row, date_column = marker
+    data_start = header_row + 2
+    nickname_column = _online_nickname_column(rows, data_start, date_column)
+    soldier_row = _online_soldier_row(rows, soldier.nickname, data_start, date_column, nickname_column)
+    if soldier_row is None:
+        return OnlineStats()
+
+    columns = _weekly_metric_columns(rows, data_start, date_column)
+    weekly = {title: _cell(soldier_row, columns[title]) if title in columns else "—" for title in WEEKLY_METRICS}
+    days: list[OnlineDay] = []
+    last_date = ""
+    for offset in range(0, 60, 2):
+        first_column = date_column + 1 + offset
+        date_label = _cell(rows[header_row], first_column) or _cell(rows[header_row], first_column + 1) or last_date
+        if not date_label:
+            continue
+        last_date = date_label
+        server_1 = _online_minutes(_cell(soldier_row, first_column))
+        server_2 = _online_minutes(_cell(soldier_row, first_column + 1))
+        days.append(OnlineDay(
+            date=date_label,
+            server_1_hours=round(server_1 / 60, 2),
+            server_2_hours=round(server_2 / 60, 2),
+            total_hours=round((server_1 + server_2) / 60, 2),
+        ))
+    ordered_days = [item for _, item in sorted(enumerate(days), key=lambda pair: _online_date_sort_key(pair[1].date, pair[0]))]
+    return OnlineStats(days=ordered_days[-30:], weekly=weekly)
+
+
 def _competency_row(rows: list[list[Any]], nickname_column: int, nickname: str) -> list[Any] | None:
     normalized_nickname = _clean_value(nickname).casefold()
     return next((row for row in rows[3:] if _cell(row, nickname_column).casefold() == normalized_nickname), None)
@@ -314,9 +448,14 @@ def fetch_soldiers() -> list[Soldier]:
     with db_session() as db:
         rows = db.execute(select(soldiers_cache).order_by(soldiers_cache.c.id)).mappings().all()
         soldiers = [_soldier_from_cache(dict(row)) for row in rows]
-        # Hide any invalid cache entries created by older imports immediately;
-        # the next composition sync will remove them from the cache entirely.
-        return [soldier for soldier in soldiers if _pick(soldier.raw, "nickname")]
+    # Hide any invalid cache entries created by older imports immediately;
+    # the next composition sync will remove them from the cache entirely.
+    online_rows = fetch_cached_online_rows()
+    return [
+        soldier.model_copy(update={"online": get_online_for_soldier(soldier, online_rows)})
+        for soldier in soldiers
+        if _pick(soldier.raw, "nickname")
+    ]
 
 
 def find_soldier(nickname: str) -> Soldier | None:
@@ -330,7 +469,9 @@ def find_soldier(nickname: str) -> Soldier | None:
         if not row:
             return None
         soldier = _soldier_from_cache(dict(row))
-        return soldier if _pick(soldier.raw, "nickname") else None
+        if not _pick(soldier.raw, "nickname"):
+            return None
+        return soldier.model_copy(update={"online": get_online_for_soldier(soldier)})
 
 
 def has_cached_soldiers() -> bool:

@@ -48,6 +48,14 @@ competencies_sheet_cache = Table(
     Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
 )
 
+online_sheet_cache = Table(
+    "online_sheet_cache",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("rows", JSON, nullable=False),
+    Column("synced_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
+)
+
 refresh_sessions = Table(
     "refresh_sessions",
     metadata,

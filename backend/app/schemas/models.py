@@ -5,6 +5,18 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
+class OnlineDay(BaseModel):
+    date: str
+    server_1_hours: float = 0
+    server_2_hours: float = 0
+    total_hours: float = 0
+
+
+class OnlineStats(BaseModel):
+    days: list[OnlineDay] = Field(default_factory=list)
+    weekly: dict[str, str] = Field(default_factory=dict)
+
+
 class Soldier(BaseModel):
     id: str
     nickname: str
@@ -16,6 +28,7 @@ class Soldier(BaseModel):
     position: str = ""
     status: str = ""
     raw: dict[str, Any] = Field(default_factory=dict)
+    online: OnlineStats = Field(default_factory=OnlineStats)
 
 
 class EquipmentItem(BaseModel):

@@ -33,6 +33,19 @@ export type Soldier = {
   position: string;
   status: string;
   raw: Record<string, unknown>;
+  online: OnlineStats;
+};
+
+export type OnlineDay = {
+  date: string;
+  server_1_hours: number;
+  server_2_hours: number;
+  total_hours: number;
+};
+
+export type OnlineStats = {
+  days: OnlineDay[];
+  weekly: Record<string, string>;
 };
 
 export type EquipmentItem = {

@@ -49,6 +49,7 @@ npm run dev
 
 - `GOOGLE_SHEET_ID` - ID таблицы.
 - `GOOGLE_SHEET_GID` - gid листа.
+- `GOOGLE_ONLINE_SHEET_GID` - gid листа с онлайном и недельной статистикой.
 - `GOOGLE_SHEET_CSV_URL` - необязательная прямая CSV-ссылка из “Опубликовать в интернете”.
 - `ADMIN_NICKNAME` - ник админа по умолчанию.
 - `ADMIN_PASSWORD` - пароль админа по умолчанию.
