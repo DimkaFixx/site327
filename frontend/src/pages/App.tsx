@@ -668,7 +668,6 @@ function ProfileCard({ profile }: { profile: Soldier }) {
       {hasExpandedInfo && (
         <details>
           <summary>Расширенная информация</summary>
-          <OnlineChart online={profile.online} />
           {uniqueDetails.length > 0 && (
             <div className="raw-section">
               <h3>Данные бойца</h3>
@@ -695,6 +694,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
               </div>
             </div>
           )}
+          <OnlineChart online={profile.online} />
         </details>
       )}
     </section>
