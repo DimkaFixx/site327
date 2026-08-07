@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     google_sheet_gid: str
     google_competencies_sheet_gid: str = "1729417927"
     google_online_sheet_gid: str = ""
+    google_medals_sheet_gid: str = ""
     google_sheet_csv_url: str
     google_sheet_range: str
     google_service_account_file: str

@@ -90,9 +90,16 @@ export type CompetencyItem = {
   completed: boolean;
 };
 
+export type MedalItem = {
+  title: string;
+  completed: boolean;
+};
+
 export type CompetenciesResponse = {
-  attestations: CompetencyItem[];
-  tech_access: CompetencyItem[];
+    attestations: CompetencyItem[];
+    tech_access: CompetencyItem[];
+    medals: MedalItem[];
+    pilot_medals: MedalItem[];
 };
 
 export type FormItem = {

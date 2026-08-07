@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.repositories.database import init_db
 from app.routers import admin, auth, docs, forms, health, home, soldiers, uploads
-from app.services.sheets import has_cached_competencies, has_cached_online, has_cached_soldiers, sync_competencies_from_sheet, sync_online_from_sheet, sync_soldiers_from_sheet
+from app.services.sheets import has_cached_competencies, has_cached_medals, has_cached_online, has_cached_soldiers, sync_competencies_from_sheet, sync_medals_from_sheet, sync_online_from_sheet, sync_soldiers_from_sheet
 from app.utils.security import verify_csrf
 
 
@@ -59,7 +59,7 @@ app.include_router(admin.router)
 async def startup() -> None:
     global sync_task
     init_db()
-    if not has_cached_soldiers() or not has_cached_competencies() or (settings.google_online_sheet_gid.strip() and not has_cached_online()):
+    if not has_cached_soldiers() or not has_cached_competencies() or (settings.google_online_sheet_gid.strip() and not has_cached_online()) or (settings.google_medals_sheet_gid.strip() and not has_cached_medals()):
         await sync_tables()
     sync_task = asyncio.create_task(soldiers_sync_loop())
 
@@ -83,6 +83,7 @@ async def sync_tables() -> None:
         soldiers_count = await sync_soldiers_from_sheet()
         competencies_rows = await sync_competencies_from_sheet()
         online_rows = await sync_online_from_sheet()
-        logger.info("Таблицы обновлены автоматически: состав — %s, компетенции — %s строк, онлайн — %s строк", soldiers_count, competencies_rows, online_rows)
+        medals_rows = await sync_medals_from_sheet()
+        logger.info("Таблицы обновлены автоматически: состав — %s, компетенции — %s строк, онлайн — %s строк, медали — %s строк", soldiers_count, competencies_rows, online_rows, medals_rows)
     except Exception:
         logger.exception("Не удалось обновить таблицы автоматически")

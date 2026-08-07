@@ -800,6 +800,14 @@ function CompetenciesView({ competencies, error }: { competencies: CompetenciesR
           </div>
         ))}
       </section>
+      <section className="competencies-section medals-section">
+        <h3>Медали</h3>
+        {competencies.medals.length === 0 ? <div className="empty">Обычные медали пока не указаны.</div> : <div className="competency-chips">{competencies.medals.map((medal) => <span className={medal.completed ? "" : "is-pending"} key={medal.title}>{medal.completed ? <BadgeCheck size={15} /> : <X size={15} />}{medal.title}<small>{medal.completed ? "Получена" : "Не получена"}</small></span>)}</div>}
+      </section>
+      <section className="competencies-section medals-section">
+        <h3>Медали пилотов</h3>
+        {competencies.pilot_medals.length === 0 ? <div className="empty">Пилотские медали пока не указаны.</div> : <div className="competency-chips">{competencies.pilot_medals.map((medal) => <span className={medal.completed ? "" : "is-pending"} key={medal.title}>{medal.completed ? <BadgeCheck size={15} /> : <X size={15} />}{medal.title}<small>{medal.completed ? "Получена" : "Не получена"}</small></span>)}</div>}
+      </section>
     </section>
   );
 }

@@ -5,7 +5,7 @@ from app.repositories.docs_store import resolve_doc_access
 from app.repositories.forms_store import resolve_access
 from app.repositories.regulations_store import get_equipment_for_soldier
 from app.schemas.models import CompetenciesResponse, EquipmentResponse, LoginResponse, Soldier
-from app.services.sheets import fetch_soldiers, find_soldier, get_competencies_for_soldier, sync_competencies_from_sheet, sync_soldiers_from_sheet
+from app.services.sheets import fetch_soldiers, find_soldier, get_competencies_for_soldier, sync_competencies_from_sheet, sync_medals_from_sheet, sync_soldiers_from_sheet
 from app.utils.security import is_current_admin, require_admin, require_ready_session
 
 router = APIRouter(prefix="/api")
@@ -68,5 +68,6 @@ async def admin_sync_soldiers(request: Request) -> dict[str, int]:
 async def admin_sync_competencies(request: Request) -> dict[str, int]:
     require_admin(request)
     rows_synced = await sync_competencies_from_sheet()
-    log_admin_event(request, "sync_competencies", details={"rows": rows_synced})
-    return {"rows": rows_synced}
+    medals_rows = await sync_medals_from_sheet()
+    log_admin_event(request, "sync_competencies", details={"rows": rows_synced, "medals_rows": medals_rows})
+    return {"rows": rows_synced, "medals_rows": medals_rows}

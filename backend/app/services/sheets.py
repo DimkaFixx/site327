@@ -10,8 +10,8 @@ from googleapiclient.errors import HttpError
 from sqlalchemy import delete, func, insert, select
 
 from app.config import get_settings
-from app.repositories.database import competencies_sheet_cache, db_session, online_sheet_cache, soldiers_cache
-from app.schemas.models import CompetenciesResponse, CompetencyItem, OnlineDay, OnlineStats, Soldier
+from app.repositories.database import competencies_sheet_cache, db_session, medals_sheet_cache, online_sheet_cache, soldiers_cache
+from app.schemas.models import CompetenciesResponse, CompetencyItem, MedalItem, OnlineDay, OnlineStats, Soldier
 
 
 HEADER_ALIASES = {
@@ -258,6 +258,71 @@ async def sync_online_from_sheet() -> int:
     return len(rows)
 
 
+def fetch_cached_medals_rows() -> list[list[Any]]:
+    with db_session() as db:
+        row = db.execute(select(medals_sheet_cache.c.rows).where(medals_sheet_cache.c.id == 1)).scalar_one_or_none()
+    return row if isinstance(row, list) else []
+
+
+def has_cached_medals() -> bool:
+    with db_session() as db:
+        return db.execute(select(medals_sheet_cache.c.id).where(medals_sheet_cache.c.id == 1)).scalar_one_or_none() is not None
+
+
+async def sync_medals_from_sheet() -> int:
+    gid = get_settings().google_medals_sheet_gid.strip()
+    if not gid:
+        return 0
+    rows = await asyncio.to_thread(_fetch_sheet_rows_for_gid, gid)
+    with db_session() as db:
+        db.execute(delete(medals_sheet_cache).where(medals_sheet_cache.c.id == 1))
+        db.execute(insert(medals_sheet_cache).values(id=1, rows=rows, synced_at=datetime.utcnow()))
+    return len(rows)
+
+
+def _find_medals_header(rows: list[list[Any]]) -> tuple[int, int] | None:
+    for row_index, row in enumerate(rows[:8]):
+        for column_index, value in enumerate(row):
+            if _clean_header(_clean_value(value)) == "баллы":
+                return row_index, column_index
+    return None
+
+
+def _medal_completed(value: str) -> bool:
+    return _clean_value(value).casefold() in {"1", "true", "да", "yes", "✓"}
+
+
+def get_medals_for_soldier(soldier: Soldier) -> tuple[list[MedalItem], list[MedalItem]]:
+    rows = fetch_cached_medals_rows()
+    marker = _find_medals_header(rows)
+    if marker is None:
+        return [], []
+    header_row, points_column = marker
+    header = rows[header_row]
+    nickname_column = _find_label_index(header, "Позывной")
+    if nickname_column is None:
+        return [], []
+    total_columns = [index for index in range(points_column + 1, len(header)) if _cell(header, index) == "Σ"]
+    if not total_columns:
+        return [], []
+    general_end = total_columns[0]
+    pilot_end = total_columns[1] if len(total_columns) > 1 else len(header)
+    player_row = next((row for row in rows[header_row + 1:] if _cell(row, nickname_column).casefold() == _clean_value(soldier.nickname).casefold()), None)
+    if player_row is None:
+        return [], []
+
+    def medals_in_range(start: int, end: int) -> list[MedalItem]:
+        return [
+            MedalItem(title=title, completed=_medal_completed(_cell(player_row, index)))
+            for index in range(start, end)
+            if (title := _cell(header, index)) and title != "Σ"
+        ]
+
+    # The blank separator after the first Σ is ignored automatically because
+    # it has no title. All named columns up to the next Σ are pilot medals.
+    return medals_in_range(points_column + 1, general_end), medals_in_range(general_end + 1, pilot_end)
+
+
 def _find_online_date_marker(rows: list[list[Any]]) -> tuple[int, int] | None:
     for row_index, row in enumerate(rows[:5]):
         for column_index, value in enumerate(row):
@@ -426,7 +491,8 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
             title = _cell(labels, index)
             if title:
                 tech_access.append(CompetencyItem(title=title, group=current_group, completed=_cell(tech_row, index) == "1"))
-    return CompetenciesResponse(attestations=attestations, tech_access=tech_access)
+    medals, pilot_medals = get_medals_for_soldier(soldier)
+    return CompetenciesResponse(attestations=attestations, tech_access=tech_access, medals=medals, pilot_medals=pilot_medals)
 
 
 def _soldier_from_cache(row: dict[str, Any]) -> Soldier:
