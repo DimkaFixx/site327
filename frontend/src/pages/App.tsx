@@ -597,6 +597,8 @@ function OnlineChart({ online }: { online: Soldier["online"] | undefined }) {
   const days = online?.days ?? [];
   const weekly = online?.weekly ?? {};
   const currentDay = days[Math.min(activeDay, Math.max(days.length - 1, 0))];
+  const totalLastSevenDays = days.slice(-7).reduce((total, day) => total + day.total_hours, 0);
+  const totalLastThirtyDays = days.reduce((total, day) => total + day.total_hours, 0);
   const chartWidth = 720;
   const chartHeight = 180;
   const padding = { top: 16, right: 16, bottom: 32, left: 42 };
@@ -637,7 +639,7 @@ function OnlineChart({ online }: { online: Soldier["online"] | undefined }) {
               return <text key={`label-${index}`} className="online-chart-label online-chart-date" x={x} y={chartHeight - 8}>{days[index].date}</text>;
             })}
           </svg>
-          {currentDay && <div className="online-chart-tooltip"><strong>{currentDay.date}</strong><span>Сервер 1: {formatOnlineHours(currentDay.server_1_hours)}</span><span>Сервер 2: {formatOnlineHours(currentDay.server_2_hours)}</span><span>Всего: {formatOnlineHours(currentDay.total_hours)}</span></div>}
+          {currentDay && <div className="online-chart-tooltip"><strong>{currentDay.date}</strong><span>Сервер 1: {formatOnlineHours(currentDay.server_1_hours)}</span><span>Сервер 2: {formatOnlineHours(currentDay.server_2_hours)}</span><span>Всего: {formatOnlineHours(currentDay.total_hours)}</span><span>Всего за 7 дней: {formatOnlineHours(totalLastSevenDays)}</span><span>Всего за 30 дней: {formatOnlineHours(totalLastThirtyDays)}</span></div>}
         </>
       ) : <p className="online-empty">Данные об онлайне пока не найдены.</p>}
       <div className="weekly-stats">
