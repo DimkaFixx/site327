@@ -10,7 +10,7 @@ from googleapiclient.errors import HttpError
 from sqlalchemy import delete, func, insert, select
 
 from app.config import get_settings
-from app.repositories.database import competencies_sheet_cache, db_session, medals_sheet_cache, online_sheet_cache, soldiers_cache
+from app.repositories.database import competencies_sheet_cache, db_session, medals_sheet_cache, online_sheet_cache, refresh_sessions, soldiers_cache, users, verification_codes
 from app.schemas.models import CompetenciesResponse, CompetencyItem, MedalItem, OnlineDay, OnlineStats, Soldier
 
 
@@ -558,6 +558,21 @@ async def sync_soldiers_from_sheet() -> int:
 
     synced_at = datetime.utcnow()
     with db_session() as db:
+        # Accounts belong only to current members of the roster. Keeping an
+        # account after its callsign was corrected in the sheet leaves a stale
+        # login (for example "Phoenix" beside the corrected "Phoenix Violet").
+        # Do not run this cleanup on an empty import: that would turn a broken
+        # or unavailable sheet into deletion of every account.
+        if unique_soldiers:
+            active_nicknames = {soldier.nickname.casefold() for soldier in unique_soldiers}
+            account_rows = db.execute(select(users.c.nickname, users.c.normalized_nickname)).mappings().all()
+            stale_accounts = [dict(row) for row in account_rows if row["normalized_nickname"] not in active_nicknames]
+            if stale_accounts:
+                stale_normalized = [row["normalized_nickname"] for row in stale_accounts]
+                stale_nicknames = [row["nickname"] for row in stale_accounts]
+                db.execute(delete(users).where(users.c.normalized_nickname.in_(stale_normalized)))
+                db.execute(delete(refresh_sessions).where(refresh_sessions.c.nickname.in_(stale_nicknames)))
+                db.execute(delete(verification_codes).where(verification_codes.c.normalized_nickname.in_(stale_normalized)))
         db.execute(delete(soldiers_cache))
         if unique_soldiers:
             db.execute(
