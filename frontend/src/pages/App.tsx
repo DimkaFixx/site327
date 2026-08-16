@@ -1047,7 +1047,7 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
   );
 }
 
-function DocPage({ docId }: { docId: string }) {
+function DocPage({ docId, isAdmin }: { docId: string; isAdmin: boolean }) {
   const [doc, setDoc] = useState<DocItem | null>(null);
   const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
   const [error, setError] = useState("");
@@ -1076,6 +1076,7 @@ function DocPage({ docId }: { docId: string }) {
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
+          {isAdmin && doc?.document_type !== "link" && <a className="ghost-link" href={`#/docs/${encodeURIComponent(docId)}/edit`}>Редактировать</a>}
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
@@ -2635,7 +2636,7 @@ export function App() {
   }
 
   if (docRouteId) {
-    return <DocPage docId={docRouteId} />;
+    return <DocPage docId={docRouteId} isAdmin={session.is_admin} />;
   }
 
   return (
