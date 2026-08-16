@@ -1807,7 +1807,7 @@ function AdminPanel({ session, onAdminAccessDenied, focus }: { session: Session;
       <header className="topbar">
         <div>
           <p className="eyebrow">{focus === "docs" ? "Документация" : "Ghost Admin"}</p>
-          <h1>{focus === "forms" ? "Администрирование форм" : focus === "docs" ? "Администрирование документации" : "Админка"}</h1>
+          <h1>{focus === "forms" ? "Формы" : focus === "docs" ? "Документация" : "Админка"}</h1>
         </div>
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
@@ -2482,7 +2482,7 @@ export function App() {
   const isAdminRoute = route === "#/ghost-admin";
   const isRegulationsRoute = route === "#/ghost-admin/regulations";
   const isFormsAdminRoute = route === "#/ghost-admin/forms";
-  const isDocsAdminRoute = route === "#/docs/manage";
+  const isDocsAdminRoute = route === "#/docs/manage" || route === "#/ghost-admin/docs";
   const isArchiveRoute = route === "#/archive";
   const isHomeEditRoute = route === "#/home/edit";
   const docEditRouteMatch = route.match(/^#\/docs\/([^/]+)\/edit$/);
