@@ -2146,7 +2146,10 @@ function AccountsModal({
   onUpdateRoles: (user: UserAccount, role: UserAccount["role"]) => Promise<void>;
   onResetPassword: (nickname: string) => Promise<void>;
 }) {
+  const [query, setQuery] = useState("");
   const currentNickname = session.profile.nickname.trim().replaceAll("`", "").toLocaleLowerCase();
+  const normalizedQuery = query.trim().replaceAll("`", "").toLocaleLowerCase();
+  const filteredUsers = users.filter((user) => user.nickname.replaceAll("`", "").toLocaleLowerCase().includes(normalizedQuery));
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section className="access-modal accounts-modal" role="dialog" aria-modal="true" aria-label="Учётные записи" onMouseDown={(event) => event.stopPropagation()}>
@@ -2155,8 +2158,13 @@ function AccountsModal({
           <button className="secondary-button" onClick={onClose} aria-label="Закрыть учётки"><X size={18} /></button>
         </div>
         <div className="access-modal-body">
+          <label className="search">
+            <Search size={18} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по нику" />
+          </label>
           <div className="admin-list accounts-list">
-            {users.map((user) => (
+            {filteredUsers.length === 0 && <div className="empty">Учётки не найдены</div>}
+            {filteredUsers.map((user) => (
               <div className="account-row" key={user.nickname}>
                 <div>
                   <strong>{user.nickname}</strong>
