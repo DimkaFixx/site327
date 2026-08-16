@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, MetaData, String, Table, create_engine, false, func, text, true
+from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, MetaData, String, Table, create_engine, false, func, inspect, text, true
 from sqlalchemy.engine import Engine
 
 from app.config import get_settings
@@ -131,13 +131,16 @@ engine = create_db_engine()
 def init_db() -> None:
     metadata.create_all(engine)
     with engine.begin() as connection:
+        # create_all does not add columns to an existing table. This migration
+        # is deliberately portable: production uses PostgreSQL while local
+        # installs commonly use SQLite.
+        user_columns = {column["name"] for column in inspect(connection).get_columns("users")}
+        if "is_admin" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT false"))
+        if "role" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(24) NOT NULL DEFAULT 'fighter'"))
+            connection.execute(text("UPDATE users SET role = 'admin' WHERE is_admin = true"))
         if engine.dialect.name == "sqlite":
-            columns = {row[1] for row in connection.execute(text("PRAGMA table_info(users)"))}
-            if "is_admin" not in columns:
-                connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
-            if "role" not in columns:
-                connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(24) NOT NULL DEFAULT 'fighter'"))
-                connection.execute(text("UPDATE users SET role = 'admin' WHERE is_admin = true"))
             verification_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(verification_codes)"))}
             if verification_columns and "locked_until" not in verification_columns:
                 connection.execute(text("ALTER TABLE verification_codes ADD COLUMN locked_until DATETIME"))
