@@ -1803,7 +1803,7 @@ function AdminPanel({ session, onAdminAccessDenied, focus }: { session: Session;
   }
 
   return (
-    <main className={`shell${focus ? ` admin-focus-${focus}` : ""}${focus === "docs" && !session.is_admin ? " docs-manager-view" : ""}`}>
+    <main className={`shell${focus ? ` admin-focus-${focus}` : " admin-main-view"}${focus === "docs" && !session.is_admin ? " docs-manager-view" : ""}`}>
       <header className="topbar">
         <div>
           <p className="eyebrow">{focus === "docs" ? "Документация" : "Ghost Admin"}</p>

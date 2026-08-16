@@ -1660,6 +1660,11 @@ summary {
   display: none;
 }
 
+.admin-main-view .forms-admin-section,
+.admin-main-view .docs-admin-section {
+  display: none;
+}
+
 .docs-manager-view .docs-admin-section > .nested-admin-block {
   display: none;
 }
