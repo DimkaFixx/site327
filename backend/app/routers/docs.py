@@ -4,7 +4,7 @@ from app.repositories.audit import log_admin_event
 from app.repositories.docs_store import create_doc, create_docs_section, delete_doc, delete_docs_section, get_doc_for_view, get_markdown_settings, list_docs_sections, move_doc, move_docs_section, resolve_doc_access, update_doc
 from app.schemas.models import DocItem, DocPayload, DocsSection, DocsSectionPayload, MarkdownSettings, MovePayload
 from app.services.sheets import find_soldier
-from app.utils.security import is_current_admin, require_admin, require_ready_session
+from app.utils.security import is_current_admin, require_docs_manager, require_ready_session
 
 router = APIRouter(prefix="/api")
 
@@ -52,7 +52,7 @@ async def doc(doc_id: str, request: Request) -> DocItem:
 
 @router.post("/admin/docs-sections", response_model=DocsSection)
 async def admin_create_docs_section(payload: DocsSectionPayload, request: Request) -> DocsSection:
-    require_admin(request)
+    require_docs_manager(request)
     section = create_docs_section(payload)
     log_admin_event(request, "create_docs_section", section.id, {"title": section.title, "audience": section.audience})
     return section
@@ -60,7 +60,7 @@ async def admin_create_docs_section(payload: DocsSectionPayload, request: Reques
 
 @router.delete("/admin/docs-sections/{section_id}")
 async def admin_delete_docs_section(section_id: str, request: Request) -> dict[str, bool]:
-    require_admin(request)
+    require_docs_manager(request)
     if not delete_docs_section(section_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Раздел документации не найден")
     log_admin_event(request, "delete_docs_section", section_id)
@@ -69,7 +69,7 @@ async def admin_delete_docs_section(section_id: str, request: Request) -> dict[s
 
 @router.post("/admin/docs-sections/{section_id}/move")
 async def admin_move_docs_section(section_id: str, payload: MovePayload, request: Request) -> dict[str, bool]:
-    require_admin(request)
+    require_docs_manager(request)
     if not move_docs_section(section_id, payload.direction):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Невозможно переместить раздел")
     log_admin_event(request, "move_docs_section", section_id, {"direction": payload.direction})
@@ -78,7 +78,7 @@ async def admin_move_docs_section(section_id: str, payload: MovePayload, request
 
 @router.post("/admin/docs", response_model=DocItem)
 async def admin_create_doc(payload: DocPayload, request: Request) -> DocItem:
-    require_admin(request)
+    require_docs_manager(request)
     doc = create_doc(payload)
     log_admin_event(request, "create_doc", doc.id, {"title": doc.title, "section_id": doc.section_id})
     return doc
@@ -86,7 +86,7 @@ async def admin_create_doc(payload: DocPayload, request: Request) -> DocItem:
 
 @router.patch("/admin/docs/{doc_id}", response_model=DocItem)
 async def admin_update_doc(doc_id: str, payload: DocPayload, request: Request) -> DocItem:
-    require_admin(request)
+    require_docs_manager(request)
     updated = update_doc(doc_id, payload)
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Документ не найден")
@@ -96,7 +96,7 @@ async def admin_update_doc(doc_id: str, payload: DocPayload, request: Request) -
 
 @router.post("/admin/docs/{doc_id}/move")
 async def admin_move_doc(doc_id: str, payload: MovePayload, request: Request) -> dict[str, bool]:
-    require_admin(request)
+    require_docs_manager(request)
     if not move_doc(doc_id, payload.direction):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Невозможно переместить документ")
     log_admin_event(request, "move_doc", doc_id, {"direction": payload.direction})
@@ -105,7 +105,7 @@ async def admin_move_doc(doc_id: str, payload: MovePayload, request: Request) ->
 
 @router.delete("/admin/docs/{doc_id}")
 async def admin_delete_doc(doc_id: str, request: Request) -> dict[str, bool]:
-    require_admin(request)
+    require_docs_manager(request)
     if not delete_doc(doc_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Документ не найден")
     log_admin_event(request, "delete_doc", doc_id)

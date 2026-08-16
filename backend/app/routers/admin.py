@@ -12,10 +12,10 @@ from app.repositories.docs_store import create_doc_access_group, delete_doc_acce
 from app.repositories.forms_store import create_access_group, delete_access_group, get_access_rules, load_store, update_access_group
 from app.repositories.regulations_store import load_regulations_store, save_regulations_store
 from app.repositories.sessions import revoke_user_refresh_tokens
-from app.repositories.users import list_users, reset_user_password, set_user_roles
+from app.repositories.users import list_users, reset_user_password, set_user_role
 from app.repositories.verification import delete_verifications, list_active_verification_codes, reset_verifications
 from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, MarkdownSettings, RegulationsStore, UserAccount, UserRolesPayload, VerificationCodeAdminItem
-from app.utils.security import require_admin
+from app.utils.security import require_admin, require_docs_manager
 
 router = APIRouter(prefix="/api/admin")
 uploads_path = Path(get_settings().uploads_path)
@@ -29,7 +29,7 @@ async def admin_forms_store(request: Request):
 
 @router.get("/docs-store")
 async def admin_docs_store(request: Request):
-    require_admin(request)
+    require_docs_manager(request)
     return load_docs_store()
 
 
@@ -44,7 +44,7 @@ async def admin_update_docs_settings(payload: MarkdownSettings, request: Request
 @router.post("/uploads/image")
 async def admin_upload_image(request: Request, file: UploadFile = File(...)) -> dict[str, str]:
     settings = get_settings()
-    require_admin(request)
+    require_docs_manager(request)
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Можно загружать только изображения")
 
@@ -106,7 +106,7 @@ async def admin_access_rules(request: Request) -> AccessRules:
 
 @router.get("/doc-access-rules", response_model=AccessRules)
 async def admin_doc_access_rules(request: Request) -> AccessRules:
-    require_admin(request)
+    require_docs_manager(request)
     return get_doc_access_rules()
 
 
@@ -172,7 +172,8 @@ async def admin_users(request: Request) -> list[UserAccount]:
         UserAccount(
             nickname=user["nickname"],
             has_password=bool(user.get("password_hash")),
-            is_admin=bool(user.get("is_admin")) or user["normalized_nickname"] == settings.default_admin_name,
+            is_admin=user.get("role") == "admin" or bool(user.get("is_admin")) or user["normalized_nickname"] == settings.default_admin_name,
+            role="admin" if user["normalized_nickname"] == settings.default_admin_name else (user.get("role") or ("admin" if user.get("is_admin") else "fighter")),
             is_default_admin=user["normalized_nickname"] == settings.default_admin_name,
         )
         for user in list_users()
@@ -211,18 +212,21 @@ async def admin_update_user_roles(nickname: str, payload: UserRolesPayload, requ
     session = require_admin(request)
     normalized = nickname.strip().strip("`").strip().casefold()
     actor = str(session.get("nickname", "")).strip().strip("`").strip().casefold()
-    if not payload.is_admin and normalized == actor:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Нельзя снять права администратора с собственной учётной записи")
+    if normalized == actor:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Нельзя изменить собственную роль")
     is_default_admin = normalized == settings.default_admin_name
-    saved = set_user_roles(nickname, payload.is_admin)
+    if is_default_admin:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Нельзя изменить роль администратора по умолчанию")
+    saved = set_user_role(nickname, payload.role)
     if not saved:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Пользователь не найден")
     revoke_user_refresh_tokens(nickname)
-    log_admin_event(request, "update_user_roles", nickname, {"is_admin": payload.is_admin})
+    log_admin_event(request, "update_user_roles", nickname, {"role": payload.role})
     return UserAccount(
         nickname=nickname,
         has_password=bool(next((user for user in list_users() if user["normalized_nickname"] == normalized), {}).get("password_hash")),
-        is_admin=payload.is_admin or is_default_admin,
+        is_admin=payload.role == "admin" or is_default_admin,
+        role="admin" if is_default_admin else payload.role,
         is_default_admin=is_default_admin,
     )
 

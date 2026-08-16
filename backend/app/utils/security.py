@@ -31,6 +31,7 @@ def _b64decode(payload: str) -> bytes:
 def create_token(
     nickname: str,
     is_admin: bool,
+    is_docs_manager: bool = False,
     is_officer: bool = False,
     is_instructor: bool = False,
     access_groups: list[str] | None = None,
@@ -47,6 +48,7 @@ def create_token(
         "typ": token_type,
         "nickname": nickname,
         "is_admin": is_admin,
+        "is_docs_manager": is_docs_manager,
         "is_officer": is_officer,
         "is_instructor": is_instructor,
         "access_groups": access_groups or [],
@@ -187,7 +189,14 @@ def is_current_admin(nickname: str) -> bool:
     if normalized == settings.default_admin_name:
         return True
     user = get_user(nickname)
-    return bool(user and user.get("is_admin"))
+    return bool(user and (user.get("role") == "admin" or user.get("is_admin")))
+
+
+def is_docs_manager(nickname: str) -> bool:
+    if is_current_admin(nickname):
+        return True
+    user = get_user(nickname)
+    return bool(user and user.get("role") == "docs_manager")
 
 
 def require_admin(request: Request) -> dict[str, Any]:
@@ -196,6 +205,15 @@ def require_admin(request: Request) -> dict[str, Any]:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Password setup required")
     if not is_current_admin(str(session.get("nickname", ""))):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin access required")
+    return session
+
+
+def require_docs_manager(request: Request) -> dict[str, Any]:
+    session = get_session(request)
+    if session.get("setup_required"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Password setup required")
+    if not is_docs_manager(str(session.get("nickname", ""))):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Documentation manager access required")
     return session
 
 

@@ -1047,7 +1047,7 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
   );
 }
 
-function DocPage({ docId, isAdmin }: { docId: string; isAdmin: boolean }) {
+function DocPage({ docId, canManageDocs }: { docId: string; canManageDocs: boolean }) {
   const [doc, setDoc] = useState<DocItem | null>(null);
   const [markdownSettings, setMarkdownSettings] = useState<MarkdownSettings>(defaultMarkdownSettings);
   const [error, setError] = useState("");
@@ -1076,7 +1076,7 @@ function DocPage({ docId, isAdmin }: { docId: string; isAdmin: boolean }) {
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
-          {isAdmin && doc?.document_type !== "link" && <a className="ghost-link" href={`#/docs/${encodeURIComponent(docId)}/edit`}>Редактировать</a>}
+          {canManageDocs && doc?.document_type !== "link" && <a className="ghost-link" href={`#/docs/${encodeURIComponent(docId)}/edit`}>Редактировать</a>}
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
@@ -1756,9 +1756,8 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     await refresh();
   }
 
-  async function updateRoles(user: UserAccount, next: Partial<Pick<UserAccount, "is_admin">>) {
-    const isAdmin = next.is_admin ?? user.is_admin;
-    const updated = await api.updateUserRoles(user.nickname, isAdmin);
+  async function updateRoles(user: UserAccount, role: UserAccount["role"]) {
+    const updated = await api.updateUserRoles(user.nickname, role);
     setUsers((current) => current.map((item) => (item.nickname === updated.nickname ? updated : item)));
   }
 
@@ -2144,7 +2143,7 @@ function AccountsModal({
   users: UserAccount[];
   session: Session;
   onClose: () => void;
-  onUpdateRoles: (user: UserAccount, next: Partial<Pick<UserAccount, "is_admin">>) => Promise<void>;
+  onUpdateRoles: (user: UserAccount, role: UserAccount["role"]) => Promise<void>;
   onResetPassword: (nickname: string) => Promise<void>;
 }) {
   const currentNickname = session.profile.nickname.trim().replaceAll("`", "").toLocaleLowerCase();
@@ -2164,13 +2163,15 @@ function AccountsModal({
                   <small>{user.has_password ? "пароль задан" : "без пароля"}{user.is_default_admin ? " · админ по умолчанию" : ""}</small>
                 </div>
                 <label className="check-control">
-                  <input
-                    type="checkbox"
-                    checked={user.is_admin}
+                  <select
+                    value={user.role}
                     disabled={user.is_default_admin || user.nickname.trim().replaceAll("`", "").toLocaleLowerCase() === currentNickname}
-                    onChange={(event) => void onUpdateRoles(user, { is_admin: event.target.checked })}
-                  />
-                  Админ
+                    onChange={(event) => void onUpdateRoles(user, event.target.value as UserAccount["role"])}
+                  >
+                    <option value="fighter">Боец</option>
+                    <option value="docs_manager">Документовод</option>
+                    <option value="admin">Админ</option>
+                  </select>
                 </label>
                 <button disabled={!user.has_password} onClick={() => void onResetPassword(user.nickname)}>Сбросить пароль</button>
               </div>
@@ -2629,14 +2630,14 @@ export function App() {
   }
 
   if (docEditRouteId) {
-    if (!session.is_admin) {
+    if (!session.is_docs_manager) {
       return null;
     }
     return <DocEditPage docId={docEditRouteId} />;
   }
 
   if (docRouteId) {
-    return <DocPage docId={docRouteId} isAdmin={session.is_admin} />;
+    return <DocPage docId={docRouteId} canManageDocs={session.is_docs_manager} />;
   }
 
   return (

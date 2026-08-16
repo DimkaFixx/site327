@@ -98,6 +98,7 @@ class LoginResponse(BaseModel):
     refresh_token: str = ""
     profile: Soldier
     is_admin: bool
+    is_docs_manager: bool = False
     is_officer: bool = False
     is_instructor: bool = False
     access_groups: list[str] = Field(default_factory=list)
@@ -126,11 +127,12 @@ class UserAccount(BaseModel):
     nickname: str
     has_password: bool
     is_admin: bool = False
+    role: Literal["fighter", "docs_manager", "admin"] = "fighter"
     is_default_admin: bool = False
 
 
 class UserRolesPayload(BaseModel):
-    is_admin: bool = False
+    role: Literal["fighter", "docs_manager", "admin"]
 
 
 class VerificationCodeAdminItem(BaseModel):

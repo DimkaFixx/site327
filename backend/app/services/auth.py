@@ -8,7 +8,7 @@ from app.repositories.forms_store import resolve_access
 from app.repositories.sessions import store_refresh_token
 from app.repositories.users import ensure_user, verify_password
 from app.schemas.models import LoginRequest, LoginResponse, Soldier
-from app.utils.security import create_refresh_token, create_token, set_auth_cookies, token_expires_at
+from app.utils.security import create_refresh_token, is_docs_manager, set_auth_cookies, create_token, token_expires_at
 
 
 def build_login_response(
@@ -25,6 +25,7 @@ def build_login_response(
     settings = get_settings()
     is_default_admin = soldier.nickname.casefold() == settings.default_admin_name
     is_admin = is_default_admin or bool(user.get("is_admin"))
+    docs_manager = is_docs_manager(soldier.nickname)
     form_access = resolve_access(soldier, is_admin)
     doc_access = resolve_doc_access(soldier, is_admin)
     setup_required = (not is_default_admin and not bool(user.get("password_hash"))) if requires_password_setup is None else requires_password_setup
@@ -32,6 +33,7 @@ def build_login_response(
     token = create_token(
         nickname=soldier.nickname,
         is_admin=is_admin,
+        is_docs_manager=docs_manager,
         is_officer=bool(form_access["is_officer"]) or bool(doc_access["is_officer"]),
         is_instructor=bool(form_access["is_instructor"]) or bool(doc_access["is_instructor"]),
         access_groups=list(form_access["groups"]),
@@ -49,6 +51,7 @@ def build_login_response(
         refresh_token="",
         profile=soldier,
         is_admin=is_admin,
+        is_docs_manager=docs_manager,
         is_officer=bool(form_access["is_officer"]) or bool(doc_access["is_officer"]),
         is_instructor=bool(form_access["is_instructor"]) or bool(doc_access["is_instructor"]),
         access_groups=list(form_access["groups"]),

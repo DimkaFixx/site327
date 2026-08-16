@@ -81,13 +81,13 @@ def reset_user_password(nickname: str) -> bool:
         return result.rowcount > 0
 
 
-def set_user_roles(nickname: str, is_admin: bool) -> bool:
+def set_user_role(nickname: str, role: str) -> bool:
     normalized = normalize_nickname(nickname)
     with db_session() as db:
         result = db.execute(
             update(users)
             .where(users.c.normalized_nickname == normalized)
-            .values(is_admin=is_admin, updated_at=datetime.utcnow())
+            .values(role=role, is_admin=role == "admin", updated_at=datetime.utcnow())
         )
         return result.rowcount > 0
 

@@ -161,6 +161,7 @@ export type Session = {
   refresh_token: string;
   profile: Soldier;
   is_admin: boolean;
+  is_docs_manager: boolean;
   is_officer: boolean;
   is_instructor: boolean;
   access_groups: string[];
@@ -177,6 +178,7 @@ export type UserAccount = {
   nickname: string;
   has_password: boolean;
   is_admin: boolean;
+  role: "fighter" | "docs_manager" | "admin";
   is_default_admin: boolean;
 };
 

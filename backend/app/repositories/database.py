@@ -17,6 +17,7 @@ users = Table(
     Column("normalized_nickname", String(80), nullable=False, unique=True, index=True),
     Column("password_hash", String(255), nullable=True),
     Column("is_admin", Boolean, nullable=False, server_default=false()),
+    Column("role", String(24), nullable=False, server_default="fighter"),
     Column("is_active", Boolean, nullable=False, server_default=true()),
     Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
     Column("updated_at", DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()),
@@ -134,6 +135,9 @@ def init_db() -> None:
             columns = {row[1] for row in connection.execute(text("PRAGMA table_info(users)"))}
             if "is_admin" not in columns:
                 connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"))
+            if "role" not in columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(24) NOT NULL DEFAULT 'fighter'"))
+                connection.execute(text("UPDATE users SET role = 'admin' WHERE is_admin = true"))
             verification_columns = {row[1] for row in connection.execute(text("PRAGMA table_info(verification_codes)"))}
             if verification_columns and "locked_until" not in verification_columns:
                 connection.execute(text("ALTER TABLE verification_codes ADD COLUMN locked_until DATETIME"))

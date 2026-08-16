@@ -207,10 +207,10 @@ export const api = {
     }),
   resetUserPassword: (nickname: string) =>
     request<{ reset: boolean }>(`/api/admin/users/${encodeURIComponent(nickname)}/password`, { method: "DELETE" }),
-  updateUserRoles: (nickname: string, isAdmin: boolean) =>
+  updateUserRoles: (nickname: string, role: UserAccount["role"]) =>
     request<UserAccount>(`/api/admin/users/${encodeURIComponent(nickname)}/roles`, {
       method: "PATCH",
-      body: JSON.stringify({ is_admin: isAdmin }),
+      body: JSON.stringify({ role }),
     }),
   createTab: (title: string, audience: Audience) =>
     request<FormTab>("/api/admin/tabs", {
