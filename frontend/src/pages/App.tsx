@@ -327,7 +327,7 @@ function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }) {
                 spellCheck={false}
                 value={nickname}
                 onChange={(event) => setNickname(event.target.value)}
-                placeholder="Например: CT-3277"
+                placeholder="Ваш ПОЗЫВНОЙ, как в таблице"
               />
             </label>
           ) : (
