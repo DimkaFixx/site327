@@ -950,7 +950,7 @@ function FormsView({ tabs }: { tabs: FormTab[] }) {
   );
 }
 
-function DocsView({ sections }: { sections: DocsSection[] }) {
+function DocsView({ sections, canManageDocs = false }: { sections: DocsSection[]; canManageDocs?: boolean }) {
   const [activeSection, setActiveSection] = useState("all");
   const [query, setQuery] = useState("");
   const [openLinkDocument, setOpenLinkDocument] = useState<DocItem | null>(null);
@@ -995,6 +995,7 @@ function DocsView({ sections }: { sections: DocsSection[] }) {
 
   return (
     <section className="docs-catalog">
+      {canManageDocs && <div className="section-heading-row docs-manager-link"><div><h2>Документация</h2><p>Управление разделами и документами.</p></div><a className="secondary-button row-link-button" href="#/docs/manage">Управлять</a></div>}
       <aside className="docs-sidebar">
         <div className="tabs docs-section-tabs">
           {virtualSections.map((section) => (
@@ -1556,7 +1557,7 @@ function DocEditorFields({
   );
 }
 
-function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdminAccessDenied: () => void }) {
+function AdminPanel({ session, onAdminAccessDenied, focus }: { session: Session; onAdminAccessDenied: () => void; focus?: "forms" | "docs" }) {
   const [store, setStore] = useState<FormTab[]>([]);
   const [docsStore, setDocsStore] = useState<DocsSection[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -1594,6 +1595,14 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
   const [error, setError] = useState("");
 
   async function refresh() {
+    if (focus === "docs") {
+      const [docsResult, docRules] = await Promise.all([api.adminDocsStore(), api.docAccessRules()]);
+      setDocsStore(docsResult.sections);
+      setMarkdownSettings(docsResult.markdown_settings);
+      setDocAccessRules(docRules);
+      setDocDraft((current) => ({ ...current, section_id: current.section_id || docsResult.sections[0]?.id || "" }));
+      return;
+    }
     const [result, docsResult, accounts, codes, audit, rules, docRules] = await Promise.all([
       api.adminStore(),
       api.adminDocsStore(),
@@ -1789,21 +1798,22 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
     await refresh();
   }
 
-  if (!session.is_admin) {
+  if (!session.is_admin && focus !== "docs") {
     return <LoginScreen onLogin={() => window.location.reload()} />;
   }
 
   return (
-    <main className="shell">
+    <main className={`shell${focus ? ` admin-focus-${focus}` : ""}${focus === "docs" && !session.is_admin ? " docs-manager-view" : ""}`}>
       <header className="topbar">
         <div>
-          <p className="eyebrow">Ghost Admin</p>
-          <h1>Админка</h1>
+          <p className="eyebrow">{focus === "docs" ? "Документация" : "Ghost Admin"}</p>
+          <h1>{focus === "forms" ? "Администрирование форм" : focus === "docs" ? "Администрирование документации" : "Админка"}</h1>
         </div>
         <div className="top-actions">
           <a className="ghost-link" href="#/">Главная</a>
           <a className="ghost-link" href="#/archive">В портал</a>
-          <button className="secondary-button" onClick={() => void synchronizeSheets()} disabled={isSynchronizing}>{isSynchronizing ? "Обновление..." : "Обновить данные"}</button>
+          {focus && session.is_admin && <a className="ghost-link" href="#/ghost-admin">К админке</a>}
+          {focus !== "docs" && <button className="secondary-button" onClick={() => void synchronizeSheets()} disabled={isSynchronizing}>{isSynchronizing ? "Обновление..." : "Обновить данные"}</button>}
         </div>
       </header>
       {error && <div className="alert">{error}</div>}
@@ -1828,10 +1838,12 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
           </div>
           <div className="row-actions">
             <a className="secondary-button row-link-button" href="#/ghost-admin/regulations"><Package size={16} /> Регламенты</a>
+            <a className="secondary-button row-link-button" href="#/ghost-admin/forms"><ClipboardList size={16} /> Формы</a>
+            <a className="secondary-button row-link-button" href="#/ghost-admin/docs"><BookOpenText size={16} /> Документы</a>
           </div>
         </div>
       </section>
-      <section className="admin-section">
+      <section className="admin-section forms-admin-section">
         <h2>Формы</h2>
         <div className="nested-admin-block">
           <h3>Доступы форм</h3>
@@ -1938,10 +1950,10 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
           </form>
         )}
       </section>
-      <section className="admin-section">
+      <section className="admin-section docs-admin-section">
         <div className="section-heading-row">
           <h2>Документация</h2>
-          <button className="secondary-button" onClick={() => setIsMarkdownSettingsOpen(true)}>Настроить .md</button>
+          {session.is_admin && <button className="secondary-button markdown-settings-open" onClick={() => setIsMarkdownSettingsOpen(true)}>Настроить .md</button>}
         </div>
         <div className="nested-admin-block">
           <h3>Доступы документации</h3>
@@ -2469,13 +2481,15 @@ export function App() {
   const [docs, setDocs] = useState<DocsSection[]>([]);
   const isAdminRoute = route === "#/ghost-admin";
   const isRegulationsRoute = route === "#/ghost-admin/regulations";
+  const isFormsAdminRoute = route === "#/ghost-admin/forms";
+  const isDocsAdminRoute = route === "#/docs/manage";
   const isArchiveRoute = route === "#/archive";
   const isHomeEditRoute = route === "#/home/edit";
   const docEditRouteMatch = route.match(/^#\/docs\/([^/]+)\/edit$/);
   const docRouteMatch = route.match(/^#\/docs\/([^/]+)$/);
   const docEditRouteId = docEditRouteMatch ? decodeURIComponent(docEditRouteMatch[1]) : "";
   const docRouteId = docRouteMatch ? decodeURIComponent(docRouteMatch[1]) : "";
-  const isAdminOnlyRoute = isAdminRoute || isRegulationsRoute || isHomeEditRoute || Boolean(docEditRouteId);
+  const isAdminOnlyRoute = isAdminRoute || isRegulationsRoute || isFormsAdminRoute || isHomeEditRoute || Boolean(docEditRouteId);
 
   const syncSession = useCallback(async () => {
     const updated = await api.me();
@@ -2621,6 +2635,14 @@ export function App() {
     if (!session || !session.is_admin) return null;
     return <RegulationsPage />;
   }
+  if (isFormsAdminRoute) {
+    if (!session || !session.is_admin) return null;
+    return <AdminPanel session={session} onAdminAccessDenied={handleAdminAccessDenied} focus="forms" />;
+  }
+  if (isDocsAdminRoute) {
+    if (!session || !session.is_docs_manager) return null;
+    return <AdminPanel session={session} onAdminAccessDenied={handleAdminAccessDenied} focus="docs" />;
+  }
 
   if (isHomeEditRoute) {
     if (!session || !session.is_admin) {
@@ -2699,7 +2721,7 @@ export function App() {
         {view === "competencies" && <CompetenciesView competencies={competencies} error={competenciesError} />}
         {view === "profiles" && <ProfilesView soldiers={soldiers} />}
         {view === "forms" && <FormsView tabs={forms} />}
-        {view === "docs" && <DocsView sections={docs} />}
+        {view === "docs" && <DocsView sections={docs} canManageDocs={session.is_docs_manager && !session.is_admin} />}
       </div>
       {isLogoutConfirmationOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setIsLogoutConfirmationOpen(false)}>

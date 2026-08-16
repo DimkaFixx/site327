@@ -1655,6 +1655,19 @@ summary {
   gap: 10px;
 }
 
+.admin-focus-forms .admin-section:not(.forms-admin-section),
+.admin-focus-docs .admin-section:not(.docs-admin-section) {
+  display: none;
+}
+
+.docs-manager-view .docs-admin-section > .nested-admin-block {
+  display: none;
+}
+
+.docs-manager-link {
+  grid-column: 1 / -1;
+}
+
 .account-row {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto auto;
