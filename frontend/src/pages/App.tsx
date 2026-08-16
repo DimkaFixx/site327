@@ -1562,6 +1562,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
   const [verificationCodes, setVerificationCodes] = useState<VerificationCodeAdminItem[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([]);
   const [isAuditOpen, setIsAuditOpen] = useState(false);
+  const [isAccountsOpen, setIsAccountsOpen] = useState(false);
   const [isSynchronizing, setIsSynchronizing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [accessRules, setAccessRules] = useState<AccessRules>(emptyAccessRules);
@@ -2073,6 +2074,7 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
         />
       )}
       {isAuditOpen && <AuditModal events={auditEvents} onClose={() => setIsAuditOpen(false)} />}
+      {isAccountsOpen && <AccountsModal users={users} session={session} onClose={() => setIsAccountsOpen(false)} onUpdateRoles={updateRoles} onResetPassword={resetPassword} />}
       <section className="admin-section">
         <div className="section-heading-row">
           <div>
@@ -2119,29 +2121,63 @@ function AdminPanel({ session, onAdminAccessDenied }: { session: Session; onAdmi
         </div>
       </section>
       <section className="admin-section">
-        <h2>Учётки</h2>
-        <div className="admin-list accounts-list">
-          {users.map((user) => (
-            <div className="account-row" key={user.nickname}>
-              <div>
-                <strong>{user.nickname}</strong>
-                <small>{user.has_password ? "пароль задан" : "без пароля"}{user.is_default_admin ? " · админ по умолчанию" : ""}</small>
-              </div>
-              <label className="check-control">
-                <input
-                  type="checkbox"
-                  checked={user.is_admin}
-                  disabled={user.is_default_admin || user.nickname.trim().replaceAll("`", "").toLocaleLowerCase() === session.profile.nickname.trim().replaceAll("`", "").toLocaleLowerCase()}
-                  onChange={(event) => updateRoles(user, { is_admin: event.target.checked })}
-                />
-                Админ
-              </label>
-              <button disabled={!user.has_password} onClick={() => resetPassword(user.nickname)}>Сбросить пароль</button>
-            </div>
-          ))}
+        <div className="section-heading-row">
+          <div>
+            <h2>Учётки</h2>
+            <p>Управление правами администратора и паролями открывается в отдельном окне.</p>
+          </div>
+          <button onClick={() => setIsAccountsOpen(true)}>Открыть учётки</button>
         </div>
       </section>
     </main>
+  );
+}
+
+function AccountsModal({
+  users,
+  session,
+  onClose,
+  onUpdateRoles,
+  onResetPassword,
+}: {
+  users: UserAccount[];
+  session: Session;
+  onClose: () => void;
+  onUpdateRoles: (user: UserAccount, next: Partial<Pick<UserAccount, "is_admin">>) => Promise<void>;
+  onResetPassword: (nickname: string) => Promise<void>;
+}) {
+  const currentNickname = session.profile.nickname.trim().replaceAll("`", "").toLocaleLowerCase();
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="access-modal accounts-modal" role="dialog" aria-modal="true" aria-label="Учётные записи" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="form-modal-bar">
+          <h2>Учётки</h2>
+          <button className="secondary-button" onClick={onClose} aria-label="Закрыть учётки"><X size={18} /></button>
+        </div>
+        <div className="access-modal-body">
+          <div className="admin-list accounts-list">
+            {users.map((user) => (
+              <div className="account-row" key={user.nickname}>
+                <div>
+                  <strong>{user.nickname}</strong>
+                  <small>{user.has_password ? "пароль задан" : "без пароля"}{user.is_default_admin ? " · админ по умолчанию" : ""}</small>
+                </div>
+                <label className="check-control">
+                  <input
+                    type="checkbox"
+                    checked={user.is_admin}
+                    disabled={user.is_default_admin || user.nickname.trim().replaceAll("`", "").toLocaleLowerCase() === currentNickname}
+                    onChange={(event) => void onUpdateRoles(user, { is_admin: event.target.checked })}
+                  />
+                  Админ
+                </label>
+                <button disabled={!user.has_password} onClick={() => void onResetPassword(user.nickname)}>Сбросить пароль</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
