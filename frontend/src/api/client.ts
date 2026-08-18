@@ -14,7 +14,7 @@ function readCookie(name: string) {
 
 function withCsrf(headers: Headers, method?: string) {
   const normalizedMethod = (method || "GET").toUpperCase();
-  if (!["POST", "PATCH", "DELETE"].includes(normalizedMethod)) return;
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) return;
   const token = readCookie("star327_csrf");
   if (token) headers.set("X-CSRF-Token", decodeURIComponent(token));
 }
