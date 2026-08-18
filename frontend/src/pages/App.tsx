@@ -2231,8 +2231,6 @@ function AuditModal({ events, onClose }: { events: AuditEventItem[]; onClose: ()
   );
 }
 
-const regulationCategories = ["Шлем", "Форма", "Жилет", "Рюкзак", "Осн. оружие", "Вторичное оружие", "Пистолет", "Гранаты", "ПНВ", "Доп"];
-
 function blankRegulation(title = "Новый регламент"): ManualRegulation {
   return {
     id: `regulation-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -2297,18 +2295,26 @@ function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicin
       if (imported.length) updateItems(imported);
       return;
     }
-    const categoryKey = (value: string) => value.toLowerCase().replace(/[\s.]/g, "");
-    const knownCategory = (value: string) => regulationCategories.find((category) => categoryKey(category) === categoryKey(value));
     const imported: EquipmentItem[] = [];
     let current: EquipmentItem | null = null;
+    let categoryColumn: number | null = null;
     for (const line of lines) {
       const cells = line.split("\t").map((cell) => cell.replaceAll('"', "").trim());
-      const categoryIndex = cells.findIndex((cell) => Boolean(knownCategory(cell.trim())));
-      if (categoryIndex >= 0) {
+      const nonEmptyColumns = cells
+        .map((cell, index) => ({ cell, index }))
+        .filter(({ cell }) => Boolean(cell));
+      // Google Sheets keeps the category in one column and leaves it blank
+      // for continuation rows. Determine that column from the first populated
+      // row instead of relying on a fixed list of category names.
+      if (categoryColumn === null && nonEmptyColumns.length >= 2) {
+        categoryColumn = nonEmptyColumns.find(({ cell }) => !/^=IMAGE\(|^https?:\/\//i.test(cell))?.index ?? null;
+      }
+      const category = categoryColumn === null ? "" : cells[categoryColumn] || "";
+      if (categoryColumn !== null && category) {
         if (current) imported.push(current);
         current = {
-          category: knownCategory(cells[categoryIndex].trim()) || cells[categoryIndex].trim(),
-          value: cells.slice(categoryIndex + 1).join("\t").trim(),
+          category: category.replace(/:\s*$/, "").trim(),
+          value: cells.slice(categoryColumn + 1).join("\t").trim(),
           amount: "",
           image_url: "",
         };
@@ -2359,7 +2365,7 @@ function RegulationEditor({ regulation, onChange, onRemove, removable, isMedicin
         {regulation.image_url && <button className="secondary-button regulation-remove-photo" type="button" onClick={() => onChange({ ...regulation, image_url: "" })}>Убрать фото</button>}
       </>}
       <textarea className="regulation-paste-input" onPaste={pasteTable} placeholder={isMedicine ? "Вставьте из Google Sheets колонки: пункт, количество, описание" : "Вставьте из Google Sheets колонки: категория, содержимое"} />
-      <p className="regulation-paste-hint">Нажмите Ctrl+V в это поле — строки сразу распределятся по пунктам. Для комплекта также поддерживается первый столбец с фото.</p>
+      <p className="regulation-paste-hint">Нажмите Ctrl+V в это поле — любой непустой пункт из колонки категорий будет добавлен. Для комплекта также поддерживается первый столбец с фото.</p>
       {isMedicine && <div className="medicine-column-headings"><span>Пункт</span><span>Количество</span><span>Примечание</span><span /></div>}
       <div className="regulation-items">
         {regulation.items.map((item, index) => (
