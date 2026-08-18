@@ -256,5 +256,9 @@ async def admin_regulations(request: Request) -> RegulationsStore:
 async def admin_update_regulations(payload: RegulationsStore, request: Request) -> RegulationsStore:
     require_admin(request)
     saved = save_regulations_store(payload)
-    log_admin_event(request, "update_regulations", details={"equipment": len(saved.equipment), "medicine_rules": len(saved.medicine_rules)})
+    log_admin_event(request, "update_regulations", details={
+        "equipment": len(saved.equipment),
+        "medicine_rules": len(saved.medicine_rules),
+        "engineer_rules": len(saved.engineer_rules),
+    })
     return saved

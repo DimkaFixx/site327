@@ -47,6 +47,8 @@ class EquipmentResponse(BaseModel):
     equipment: list[EquipmentItem] = Field(default_factory=list)
     medicine_title: str
     medicine: list[EquipmentItem] = Field(default_factory=list)
+    engineer_title: str = ""
+    engineer: list[EquipmentItem] = Field(default_factory=list)
 
 
 class RegulationFilters(BaseModel):
@@ -68,6 +70,7 @@ class RegulationsStore(BaseModel):
     equipment: list[ManualRegulation] = Field(default_factory=list)
     medicine_base: ManualRegulation
     medicine_rules: list[ManualRegulation] = Field(default_factory=list)
+    engineer_rules: list[ManualRegulation] = Field(default_factory=list)
 
 
 class CompetencyItem(BaseModel):

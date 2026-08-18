@@ -751,6 +751,19 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
           ))}
         </div>
       </section>
+      {equipment.engineer_title && equipment.engineer.length > 0 && (
+        <section className="medicine-section">
+          <h2>{equipment.engineer_title}</h2>
+          <div className="equipment-panel">
+            {equipment.engineer.map((item, index) => (
+              <div className="equipment-row" key={`${item.category}-${index}`}>
+                <strong>{item.category}</strong>
+                <p>{formatValue([item.amount, item.value].filter(Boolean).join("\n"))}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       {openedImage && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setOpenedImage(null)}>
           <section className="access-modal equipment-image-modal" role="dialog" aria-modal="true" aria-label={openedImage.label} onMouseDown={(event) => event.stopPropagation()}>
@@ -2383,7 +2396,7 @@ function RegulationsPage() {
   const [store, setStore] = useState<RegulationsStore | null>(null);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [editing, setEditing] = useState<{ kind: "equipment" | "medicine" | "base"; index?: number } | null>(null);
+  const [editing, setEditing] = useState<{ kind: "equipment" | "medicine" | "base" | "engineer"; index?: number } | null>(null);
   const [draggedEquipmentIndex, setDraggedEquipmentIndex] = useState<number | null>(null);
   useEffect(() => {
     api.regulations().then(setStore).catch((error) => setError(error instanceof Error ? error.message : "Не удалось загрузить регламенты"));
@@ -2402,6 +2415,7 @@ function RegulationsPage() {
   };
   const updateEquipment = (index: number, next: ManualRegulation) => setStore({ ...store, equipment: store.equipment.map((item, itemIndex) => itemIndex === index ? next : item) });
   const updateMedicine = (index: number, next: ManualRegulation) => setStore({ ...store, medicine_rules: store.medicine_rules.map((item, itemIndex) => itemIndex === index ? next : item) });
+  const updateEngineer = (index: number, next: ManualRegulation) => setStore({ ...store, engineer_rules: store.engineer_rules.map((item, itemIndex) => itemIndex === index ? next : item) });
   const moveEquipment = (from: number, to: number) => {
     if (from === to) return;
     const equipment = [...store.equipment];
@@ -2409,10 +2423,11 @@ function RegulationsPage() {
     equipment.splice(to, 0, moved);
     setStore({ ...store, equipment });
   };
-  const editingRule = editing?.kind === "equipment" ? store.equipment[editing.index ?? 0] : editing?.kind === "medicine" ? store.medicine_rules[editing.index ?? 0] : editing?.kind === "base" ? store.medicine_base : null;
+  const editingRule = editing?.kind === "equipment" ? store.equipment[editing.index ?? 0] : editing?.kind === "medicine" ? store.medicine_rules[editing.index ?? 0] : editing?.kind === "engineer" ? store.engineer_rules[editing.index ?? 0] : editing?.kind === "base" ? store.medicine_base : null;
   const updateEditingRule = (next: ManualRegulation) => {
     if (editing?.kind === "equipment") updateEquipment(editing.index ?? 0, next);
     if (editing?.kind === "medicine") updateMedicine(editing.index ?? 0, next);
+    if (editing?.kind === "engineer") updateEngineer(editing.index ?? 0, next);
     if (editing?.kind === "base") setStore({ ...store, medicine_base: next });
   };
   const ruleCard = (rule: ManualRegulation, onEdit: () => void) => (
@@ -2449,14 +2464,18 @@ function RegulationsPage() {
         <div className="nonstandard-regulations"><div className="section-heading-row"><h3>Нестандартные регламенты</h3><button type="button" onClick={() => { setStore({ ...store, medicine_rules: [...store.medicine_rules, blankRegulation("Нестандартная медицина")] }); setEditing({ kind: "medicine", index: store.medicine_rules.length }); }}>Добавить регламент</button></div>
           <div className="regulation-cards">{store.medicine_rules.map((rule, index) => ruleCard(rule, () => setEditing({ kind: "medicine", index })))}</div></div>
       </section>
+      <section className="admin-section"><div className="section-heading-row"><div><h2>Регламенты инженеров</h2><p>Показываются только при совпадении приписки и/или специализации. Общего регламента нет.</p></div><button type="button" onClick={() => { setStore({ ...store, engineer_rules: [...store.engineer_rules, blankRegulation("Регламент инженеров")] }); setEditing({ kind: "engineer", index: store.engineer_rules.length }); }}>Добавить регламент</button></div>
+        <div className="regulation-cards">{store.engineer_rules.map((rule, index) => ruleCard(rule, () => setEditing({ kind: "engineer", index })))}{store.engineer_rules.length === 0 && <div className="empty">Регламенты инженеров пока не добавлены.</div>}</div>
+      </section>
       <div className="form-actions"><button onClick={() => void save()} disabled={isSaving}>{isSaving ? "Сохранение..." : "Сохранить регламенты"}</button></div>
       {editing && editingRule && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setEditing(null)}>
           <section className="access-modal regulation-modal" role="dialog" aria-modal="true" aria-label={`Редактирование: ${editingRule.title}`} onMouseDown={(event) => event.stopPropagation()}>
             <div className="form-modal-bar"><h2>Редактирование регламента</h2><button className="icon-button secondary-button" type="button" onClick={() => setEditing(null)} aria-label="Закрыть"><X size={18} /></button></div>
-            <RegulationEditor regulation={editingRule} onChange={updateEditingRule} isMedicine={editing.kind === "base" || editing.kind === "medicine"} removable={editing.kind !== "base"} onRemove={() => {
+            <RegulationEditor regulation={editingRule} onChange={updateEditingRule} isMedicine={editing.kind === "base" || editing.kind === "medicine" || editing.kind === "engineer"} removable={editing.kind !== "base"} onRemove={() => {
               if (editing.kind === "equipment") setStore({ ...store, equipment: store.equipment.filter((_, index) => index !== editing.index) });
               if (editing.kind === "medicine") setStore({ ...store, medicine_rules: store.medicine_rules.filter((_, index) => index !== editing.index) });
+              if (editing.kind === "engineer") setStore({ ...store, engineer_rules: store.engineer_rules.filter((_, index) => index !== editing.index) });
               setEditing(null);
             }} />
           </section>

@@ -64,6 +64,8 @@ export type EquipmentResponse = {
   equipment: EquipmentItem[];
   medicine_title: string;
   medicine: EquipmentItem[];
+  engineer_title: string;
+  engineer: EquipmentItem[];
 };
 
 export type ManualRegulation = {
@@ -82,6 +84,7 @@ export type RegulationsStore = {
   equipment: ManualRegulation[];
   medicine_base: ManualRegulation;
   medicine_rules: ManualRegulation[];
+  engineer_rules: ManualRegulation[];
 };
 
 export type CompetencyItem = {

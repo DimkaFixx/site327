@@ -26,6 +26,7 @@ def _default_store() -> RegulationsStore:
             _rule("medicine-medics", "Медицина медиков", specializations=["MI", "M", "HM", "MS", "SM", "MM", "DMM", "HSM", "HMS"]),
             _rule("medicine-arc-arf", "Медицина ARC/ARF", assignments=["ARC", "ARF"]),
         ],
+        engineer_rules=[],
     )
 
 
@@ -37,7 +38,7 @@ def load_regulations_store() -> RegulationsStore:
     for rule in store.equipment:
         if rule.id == "trooper" and not any((rule.assignments, rule.specializations, rule.ranks, rule.positions)):
             rule.title = "Общий комплект"
-    for rule in [*store.equipment, store.medicine_base, *store.medicine_rules]:
+    for rule in [*store.equipment, store.medicine_base, *store.medicine_rules, *store.engineer_rules]:
         if all(not item.value and not item.amount for item in rule.items):
             rule.items = []
     return store
@@ -128,6 +129,15 @@ def get_equipment_for_soldier(soldier: Soldier) -> EquipmentResponse:
         )
     equipment.extend(item for item in equipment_rule.items if item.category and item.value)
     medicine_rule = _pick_rule(store.medicine_rules, soldier, store.medicine_base, medicine=True)
+    # Unlike medicine, engineers do not have a common fallback regulation.
+    # If no rule matches, the whole section is omitted from the response.
+    engineer_rule = None
+    best_engineer_score = -1
+    for rule in store.engineer_rules:
+        matches, score = _rule_matches(rule, soldier, medicine=True)
+        if matches and score >= best_engineer_score:
+            engineer_rule = rule
+            best_engineer_score = score
     return EquipmentResponse(
         regulation=equipment_rule.title,
         rank_group="Индивидуальный регламент",
@@ -136,4 +146,6 @@ def get_equipment_for_soldier(soldier: Soldier) -> EquipmentResponse:
         equipment=equipment,
         medicine_title=medicine_rule.title,
         medicine=[item for item in medicine_rule.items if item.category and (item.value or item.amount)],
+        engineer_title=engineer_rule.title if engineer_rule else "",
+        engineer=[item for item in engineer_rule.items if item.category and (item.value or item.amount)] if engineer_rule else [],
     )
