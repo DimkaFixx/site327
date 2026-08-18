@@ -15,6 +15,7 @@ from app.repositories.sessions import revoke_user_refresh_tokens
 from app.repositories.users import list_users, reset_user_password, set_user_role
 from app.repositories.verification import delete_verifications, list_active_verification_codes, reset_verifications
 from app.schemas.models import AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, MarkdownSettings, RegulationsStore, UserAccount, UserRolesPayload, VerificationCodeAdminItem
+from app.routers.uploads import cleanup_unused_uploads
 from app.utils.security import require_admin, require_docs_manager
 
 router = APIRouter(prefix="/api/admin")
@@ -256,6 +257,7 @@ async def admin_regulations(request: Request) -> RegulationsStore:
 async def admin_update_regulations(payload: RegulationsStore, request: Request) -> RegulationsStore:
     require_admin(request)
     saved = save_regulations_store(payload)
+    cleanup_unused_uploads()
     log_admin_event(request, "update_regulations", details={
         "equipment": len(saved.equipment),
         "medicine_rules": len(saved.medicine_rules),

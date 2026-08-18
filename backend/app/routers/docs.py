@@ -4,6 +4,7 @@ from app.repositories.audit import log_admin_event
 from app.repositories.docs_store import create_doc, create_docs_section, delete_doc, delete_docs_section, get_doc_for_view, get_markdown_settings, list_docs_sections, move_doc, move_docs_section, resolve_doc_access, update_doc
 from app.schemas.models import DocItem, DocPayload, DocsSection, DocsSectionPayload, MarkdownSettings, MovePayload
 from app.services.sheets import find_soldier
+from app.routers.uploads import cleanup_unused_uploads
 from app.utils.security import is_current_admin, require_docs_manager, require_ready_session
 
 router = APIRouter(prefix="/api")
@@ -54,6 +55,7 @@ async def doc(doc_id: str, request: Request) -> DocItem:
 async def admin_create_docs_section(payload: DocsSectionPayload, request: Request) -> DocsSection:
     require_docs_manager(request)
     section = create_docs_section(payload)
+    cleanup_unused_uploads()
     log_admin_event(request, "create_docs_section", section.id, {"title": section.title, "audience": section.audience})
     return section
 
@@ -63,6 +65,7 @@ async def admin_delete_docs_section(section_id: str, request: Request) -> dict[s
     require_docs_manager(request)
     if not delete_docs_section(section_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Раздел документации не найден")
+    cleanup_unused_uploads()
     log_admin_event(request, "delete_docs_section", section_id)
     return {"deleted": True}
 
@@ -80,6 +83,7 @@ async def admin_move_docs_section(section_id: str, payload: MovePayload, request
 async def admin_create_doc(payload: DocPayload, request: Request) -> DocItem:
     require_docs_manager(request)
     doc = create_doc(payload)
+    cleanup_unused_uploads()
     log_admin_event(request, "create_doc", doc.id, {"title": doc.title, "section_id": doc.section_id})
     return doc
 
@@ -90,6 +94,7 @@ async def admin_update_doc(doc_id: str, payload: DocPayload, request: Request) -
     updated = update_doc(doc_id, payload)
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Документ не найден")
+    cleanup_unused_uploads()
     log_admin_event(request, "update_doc", doc_id, {"title": updated.title, "section_id": updated.section_id})
     return updated
 
@@ -108,5 +113,6 @@ async def admin_delete_doc(doc_id: str, request: Request) -> dict[str, bool]:
     require_docs_manager(request)
     if not delete_doc(doc_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Документ не найден")
+    cleanup_unused_uploads()
     log_admin_event(request, "delete_doc", doc_id)
     return {"deleted": True}

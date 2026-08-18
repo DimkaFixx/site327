@@ -8,6 +8,7 @@ from app.repositories.forms_store import resolve_access
 from app.repositories.sessions import store_refresh_token
 from app.repositories.users import ensure_user, verify_password
 from app.schemas.models import LoginRequest, LoginResponse, Soldier
+from app.services.sheets import public_soldier
 from app.utils.security import create_refresh_token, is_docs_manager, set_auth_cookies, create_token, token_expires_at
 
 
@@ -49,7 +50,7 @@ def build_login_response(
     return LoginResponse(
         token="",
         refresh_token="",
-        profile=soldier,
+        profile=public_soldier(soldier),
         is_admin=is_admin,
         is_docs_manager=docs_manager,
         is_officer=bool(form_access["is_officer"]) or bool(doc_access["is_officer"]),

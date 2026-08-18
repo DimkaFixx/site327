@@ -58,6 +58,22 @@ def _clean_value(value: Any) -> str:
     return text.strip("`").strip()
 
 
+PRIVATE_PROFILE_HEADERS = {
+    "discord", "discord id", "discord_id", "discordid", "discord user id",
+    "дискорд", "дискорд id", "дискорд айди", "дс", "дс id", "дс айди",
+}
+
+
+def public_soldier(soldier: Soldier) -> Soldier:
+    """Return a profile without private fields from the personnel sheet."""
+    raw = {
+        key: value
+        for key, value in soldier.raw.items()
+        if _clean_header(str(key).replace("_", " ")) not in PRIVATE_PROFILE_HEADERS
+    }
+    return soldier.model_copy(update={"raw": raw})
+
+
 def _display_header(value: str) -> str:
     header = str(value or "").strip()
     return RAW_FIELD_LABELS.get(header, header)
