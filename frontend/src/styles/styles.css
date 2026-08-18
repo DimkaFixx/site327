@@ -517,6 +517,21 @@ button:disabled {
   line-height: 1.5;
 }
 
+.medical-regulation-headings,
+.medical-regulation-row {
+  grid-template-columns: minmax(130px, 0.28fr) minmax(110px, 0.2fr) 1fr;
+}
+
+.medical-regulation-headings {
+  display: grid;
+  gap: 18px;
+  padding: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .equipment-image-modal {
   position: relative;
   display: grid;
@@ -1933,6 +1948,10 @@ summary {
   }
 
   .medicine-column-headings {
+    display: none;
+  }
+
+  .medical-regulation-headings {
     display: none;
   }
 

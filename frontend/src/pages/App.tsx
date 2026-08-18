@@ -741,12 +741,14 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
       </section>
       <section className="medicine-section">
         <h2>{equipment.medicine_title}</h2>
-        <div className="equipment-panel">
+        <div className="equipment-panel medical-regulation-panel">
           {equipment.medicine.length === 0 && <div className="empty">Регламент медицины не найден.</div>}
+          {equipment.medicine.length > 0 && <div className="medical-regulation-headings"><span>Пункт</span><span>Количество</span><span>Примечание</span></div>}
           {equipment.medicine.map((item, index) => (
-            <div className="equipment-row" key={`${item.category}-${index}`}>
+            <div className="equipment-row medical-regulation-row" key={`${item.category}-${index}`}>
               <strong>{item.category}</strong>
-              <p>{formatValue([item.amount, item.value].filter(Boolean).join("\n"))}</p>
+              <p>{formatValue(item.amount)}</p>
+              <p>{formatValue(item.value)}</p>
             </div>
           ))}
         </div>
@@ -754,11 +756,13 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
       {equipment.engineer_title && equipment.engineer.length > 0 && (
         <section className="medicine-section">
           <h2>{equipment.engineer_title}</h2>
-          <div className="equipment-panel">
+          <div className="equipment-panel medical-regulation-panel">
+            <div className="medical-regulation-headings"><span>Пункт</span><span>Количество</span><span>Примечание</span></div>
             {equipment.engineer.map((item, index) => (
-              <div className="equipment-row" key={`${item.category}-${index}`}>
+              <div className="equipment-row medical-regulation-row" key={`${item.category}-${index}`}>
                 <strong>{item.category}</strong>
-                <p>{formatValue([item.amount, item.value].filter(Boolean).join("\n"))}</p>
+                <p>{formatValue(item.amount)}</p>
+                <p>{formatValue(item.value)}</p>
               </div>
             ))}
           </div>
