@@ -1,4 +1,4 @@
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, MarkdownSettings, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentResponse, FormItem, FormTab, HomePage, MarkdownSettings, ProfileCompetenciesResponse, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 let refreshInFlight: Promise<Session> | null = null;
@@ -157,6 +157,7 @@ export const api = {
   soldiers: () => request<Soldier[]>("/api/soldiers"),
   equipment: () => request<EquipmentResponse>("/api/equipment"),
   competencies: () => request<CompetenciesResponse>("/api/competencies"),
+  soldierCompetencies: (nickname: string) => request<ProfileCompetenciesResponse>(`/api/soldiers/competencies?nickname=${encodeURIComponent(nickname)}`),
   forms: () => request<FormTab[]>("/api/forms"),
   docs: () => request<DocsSection[]>("/api/docs"),
   docsSettings: () => request<MarkdownSettings>("/api/docs-settings"),

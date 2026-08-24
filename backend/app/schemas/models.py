@@ -84,9 +84,12 @@ class MedalItem(BaseModel):
     completed: bool = False
 
 
-class CompetenciesResponse(BaseModel):
+class ProfileCompetenciesResponse(BaseModel):
     attestations: list[CompetencyItem] = Field(default_factory=list)
     tech_access: list[CompetencyItem] = Field(default_factory=list)
+
+
+class CompetenciesResponse(ProfileCompetenciesResponse):
     medals: list[MedalItem] = Field(default_factory=list)
     pilot_medals: list[MedalItem] = Field(default_factory=list)
 

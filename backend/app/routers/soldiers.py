@@ -4,8 +4,8 @@ from app.repositories.audit import log_admin_event
 from app.repositories.docs_store import resolve_doc_access
 from app.repositories.forms_store import resolve_access
 from app.repositories.regulations_store import get_equipment_for_soldier
-from app.schemas.models import CompetenciesResponse, EquipmentResponse, LoginResponse, Soldier
-from app.services.sheets import fetch_soldiers, find_soldier, get_competencies_for_soldier, public_soldier, sync_competencies_from_sheet, sync_medals_from_sheet, sync_online_from_sheet, sync_soldiers_from_sheet
+from app.schemas.models import CompetenciesResponse, EquipmentResponse, LoginResponse, ProfileCompetenciesResponse, Soldier
+from app.services.sheets import fetch_soldiers, find_soldier, get_competencies_for_soldier, get_profile_competencies_for_soldier, public_soldier, sync_competencies_from_sheet, sync_medals_from_sheet, sync_online_from_sheet, sync_soldiers_from_sheet
 from app.utils.security import is_current_admin, is_docs_manager, require_admin, require_ready_session
 
 router = APIRouter(prefix="/api")
@@ -55,6 +55,15 @@ async def competencies(request: Request) -> CompetenciesResponse:
     if soldier is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Профиль больше не найден")
     return await get_competencies_for_soldier(soldier)
+
+
+@router.get("/soldiers/competencies", response_model=ProfileCompetenciesResponse)
+async def soldier_competencies(nickname: str, request: Request) -> ProfileCompetenciesResponse:
+    require_ready_session(request)
+    soldier = find_soldier(nickname)
+    if soldier is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Профиль больше не найден")
+    return get_profile_competencies_for_soldier(soldier)
 
 
 @router.post("/admin/soldiers-sync")
