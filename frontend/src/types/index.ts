@@ -98,11 +98,14 @@ export type MedalItem = {
   completed: boolean;
 };
 
-export type CompetenciesResponse = {
-    attestations: CompetencyItem[];
-    tech_access: CompetencyItem[];
-    medals: MedalItem[];
-    pilot_medals: MedalItem[];
+export type ProfileCompetenciesResponse = {
+  attestations: CompetencyItem[];
+  tech_access: CompetencyItem[];
+};
+
+export type CompetenciesResponse = ProfileCompetenciesResponse & {
+  medals: MedalItem[];
+  pilot_medals: MedalItem[];
 };
 
 export type FormItem = {

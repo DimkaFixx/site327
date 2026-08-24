@@ -11,7 +11,7 @@ from sqlalchemy import delete, func, insert, select
 
 from app.config import get_settings
 from app.repositories.database import competencies_sheet_cache, db_session, medals_sheet_cache, online_sheet_cache, refresh_sessions, soldiers_cache, users, verification_codes
-from app.schemas.models import CompetenciesResponse, CompetencyItem, MedalItem, OnlineDay, OnlineStats, Soldier
+from app.schemas.models import CompetenciesResponse, CompetencyItem, MedalItem, OnlineDay, OnlineStats, ProfileCompetenciesResponse, Soldier
 
 
 HEADER_ALIASES = {
@@ -456,7 +456,7 @@ def _competency_row(rows: list[list[Any]], nickname_column: int, nickname: str) 
     return next((row for row in rows[3:] if _cell(row, nickname_column).casefold() == normalized_nickname), None)
 
 
-async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse:
+def get_profile_competencies_for_soldier(soldier: Soldier) -> ProfileCompetenciesResponse:
     rows = fetch_cached_competencies_rows()
     if not rows:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Лист компетенций ещё не загружен")
@@ -507,8 +507,18 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
             title = _cell(labels, index)
             if title:
                 tech_access.append(CompetencyItem(title=title, group=current_group, completed=_cell(tech_row, index) == "1"))
+    return ProfileCompetenciesResponse(attestations=attestations, tech_access=tech_access)
+
+
+async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse:
+    competencies = get_profile_competencies_for_soldier(soldier)
     medals, pilot_medals = get_medals_for_soldier(soldier)
-    return CompetenciesResponse(attestations=attestations, tech_access=tech_access, medals=medals, pilot_medals=pilot_medals)
+    return CompetenciesResponse(
+        attestations=competencies.attestations,
+        tech_access=competencies.tech_access,
+        medals=medals,
+        pilot_medals=pilot_medals,
+    )
 
 
 def _soldier_from_cache(row: dict[str, Any]) -> Soldier:

@@ -4,7 +4,7 @@ import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, Set
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentItem, EquipmentResponse, FormItem, FormTab, HomePage, ManualRegulation, MarkdownSettings, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentItem, EquipmentResponse, FormItem, FormTab, HomePage, ManualRegulation, MarkdownSettings, ProfileCompetenciesResponse, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
 type View = "me" | "equipment" | "competencies" | "profiles" | "forms" | "docs";
 type FormsAdminSheet = "view" | "create" | "edit";
@@ -649,7 +649,7 @@ function OnlineChart({ online }: { online: Soldier["online"] | undefined }) {
   );
 }
 
-function ProfileCard({ profile }: { profile: Soldier }) {
+function ProfileCard({ profile, children }: { profile: Soldier; children?: ReactNode }) {
   const { details, summary } = splitRawRows(profile);
   const uniqueDetails = details.filter(([key]) => !compactProfileFieldKeys.has(normalizeProfileFieldKey(key)));
   const hasExpandedInfo = uniqueDetails.length > 0 || summary.length > 0 || Boolean(profile.online?.days.length) || Boolean(Object.keys(profile.online?.weekly ?? {}).length);
@@ -699,6 +699,7 @@ function ProfileCard({ profile }: { profile: Soldier }) {
           <OnlineChart online={profile.online} />
         </details>
       )}
+      {children}
     </section>
   );
 }
@@ -780,25 +781,20 @@ function EquipmentView({ equipment, error }: { equipment: EquipmentResponse | nu
   );
 }
 
-function CompetenciesView({ competencies, error }: { competencies: CompetenciesResponse | null; error: string }) {
-  if (!competencies) return <div className="empty">{error || "Загрузка компетенций..."}</div>;
-  const groups = (items: CompetenciesResponse["attestations"]) => {
-    const result = new Map<string, CompetenciesResponse["attestations"]>();
-    for (const item of items) {
-      const group = item.group || "Аттестации";
-      result.set(group, [...(result.get(group) || []), item]);
-    }
-    return [...result.entries()];
-  };
-  const attestationGroups = groups(competencies.attestations);
-  const techGroups = groups(competencies.tech_access);
+function groupCompetencies(items: ProfileCompetenciesResponse["attestations"], fallbackGroup: string) {
+  const result = new Map<string, ProfileCompetenciesResponse["attestations"]>();
+  for (const item of items) {
+    const group = item.group || fallbackGroup;
+    result.set(group, [...(result.get(group) || []), item]);
+  }
+  return [...result.entries()];
+}
+
+function CompetencySections({ competencies }: { competencies: ProfileCompetenciesResponse }) {
+  const attestationGroups = groupCompetencies(competencies.attestations, "Аттестации");
+  const techGroups = groupCompetencies(competencies.tech_access, "Доступ к технике");
   return (
-    <section className="competencies-view">
-      <div className="document-header">
-        <span>Личный лист</span>
-        <h2>Мои компетенции</h2>
-        <p>Аттестации и допуски, отмеченные за вами в батальонном листе.</p>
-      </div>
+    <>
       <section className="competencies-section">
         <h3>Аттестации</h3>
         {attestationGroups.length === 0 ? <div className="empty">Аттестации пока не указаны.</div> : attestationGroups.map(([group, items]) => (
@@ -817,6 +813,20 @@ function CompetenciesView({ competencies, error }: { competencies: CompetenciesR
           </div>
         ))}
       </section>
+    </>
+  );
+}
+
+function CompetenciesView({ competencies, error }: { competencies: CompetenciesResponse | null; error: string }) {
+  if (!competencies) return <div className="empty">{error || "Загрузка компетенций..."}</div>;
+  return (
+    <section className="competencies-view">
+      <div className="document-header">
+        <span>Личный лист</span>
+        <h2>Мои компетенции</h2>
+        <p>Аттестации и допуски, отмеченные за вами в батальонном листе.</p>
+      </div>
+      <CompetencySections competencies={competencies} />
       <section className="competencies-section medals-section">
         <h3>Медали</h3>
         {competencies.medals.length === 0 ? <div className="empty">Обычные медали пока не указаны.</div> : <div className="competency-chips">{competencies.medals.map((medal) => <span className={medal.completed ? "" : "is-pending"} key={medal.title}>{medal.completed ? <BadgeCheck size={15} /> : <X size={15} />}{medal.title}<small>{medal.completed ? "Получена" : "Не получена"}</small></span>)}</div>}
@@ -826,6 +836,37 @@ function CompetenciesView({ competencies, error }: { competencies: CompetenciesR
         {competencies.pilot_medals.length === 0 ? <div className="empty">Пилотские медали пока не указаны.</div> : <div className="competency-chips">{competencies.pilot_medals.map((medal) => <span className={medal.completed ? "" : "is-pending"} key={medal.title}>{medal.completed ? <BadgeCheck size={15} /> : <X size={15} />}{medal.title}<small>{medal.completed ? "Получена" : "Не получена"}</small></span>)}</div>}
       </section>
     </section>
+  );
+}
+
+function ProfileCompetenciesDetails({ soldier }: { soldier: Soldier }) {
+  const [competencies, setCompetencies] = useState<ProfileCompetenciesResponse | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isCurrent = true;
+    setCompetencies(null);
+    setError("");
+    api.soldierCompetencies(soldier.nickname)
+      .then((result) => {
+        if (isCurrent) setCompetencies(result);
+      })
+      .catch((error) => {
+        if (isCurrent) setError(error instanceof Error ? error.message : "Не удалось загрузить компетенции бойца");
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [soldier.nickname]);
+
+  return (
+    <details className="profile-competencies">
+      <summary>Компетенции</summary>
+      <div className="profile-competencies-content">
+        {!competencies && <div className={error ? "alert" : "empty"}>{error || "Загрузка компетенций бойца..."}</div>}
+        {competencies && <CompetencySections competencies={competencies} />}
+      </div>
+    </details>
   );
 }
 
@@ -873,7 +914,7 @@ function ProfilesView({ soldiers }: { soldiers: Soldier[] }) {
           ))}
         </div>
       </aside>
-      {selected ? <div className="profile-selection" ref={profileRef}><ProfileCard profile={selected} /></div> : <div className="empty">Профиль не выбран</div>}
+      {selected ? <div className="profile-selection" ref={profileRef}><ProfileCard profile={selected}><ProfileCompetenciesDetails key={selected.id} soldier={selected} /></ProfileCard></div> : <div className="empty">Профиль не выбран</div>}
     </div>
   );
 }
