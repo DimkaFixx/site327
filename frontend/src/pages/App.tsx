@@ -2515,7 +2515,8 @@ export function App() {
   const docRouteMatch = route.match(/^#\/docs\/([^/]+)$/);
   const docEditRouteId = docEditRouteMatch ? decodeURIComponent(docEditRouteMatch[1]) : "";
   const docRouteId = docRouteMatch ? decodeURIComponent(docRouteMatch[1]) : "";
-  const isAdminOnlyRoute = isAdminRoute || isRegulationsRoute || isFormsAdminRoute || isHomeEditRoute || Boolean(docEditRouteId);
+  const isAdminOnlyRoute = isAdminRoute || isRegulationsRoute || isFormsAdminRoute || isHomeEditRoute;
+  const isDocsManagerOnlyRoute = isDocsAdminRoute || Boolean(docEditRouteId);
 
   const syncSession = useCallback(async () => {
     const updated = await api.me();
@@ -2588,10 +2589,12 @@ export function App() {
 
   useEffect(() => {
     if (isSessionRestoring) return;
-    if (isAdminOnlyRoute && (!session || !session.is_admin)) {
+    const isAccessDenied = (isAdminOnlyRoute && (!session || !session.is_admin))
+      || (isDocsManagerOnlyRoute && (!session || !session.is_docs_manager));
+    if (isAccessDenied) {
       window.location.hash = "#/";
     }
-  }, [isAdminOnlyRoute, isSessionRestoring, session]);
+  }, [isAdminOnlyRoute, isDocsManagerOnlyRoute, isSessionRestoring, session]);
 
   useEffect(() => {
     if (!session || !isArchiveRoute || isAdminRoute || isHomeEditRoute || docRouteId || docEditRouteId) return;
