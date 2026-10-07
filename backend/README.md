@@ -25,6 +25,21 @@ Backend читает таблицу через Google Sheets API от имени
 
 Service account должен быть добавлен в таблицу как `Viewer`. После этого таблицу можно закрыть от общего доступа.
 
+## Принудительная синхронизация
+
+`POST /api/system/sync` обновляет все листы (состав, компетенции, онлайн, медали) без админ-сессии. Доступ защищён секретом `TOKEN_SECRET`, который передаётся в заголовке `X-Token-Secret`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/system/sync \
+  -H "X-Token-Secret: $TOKEN_SECRET"
+```
+
+Ответ содержит количество прочитанных строк и ошибки:
+
+```json
+{"soldiers": 42, "competencies": 120, "online": 80, "medals": 15, "errors": {}, "synced_at": "2026-10-07T20:00:00+00:00"}
+```
+
 ## Discord proxy
 
 Код подтверждения отправляется через Discord API proxy. В `backend/.env` должны быть заданы:

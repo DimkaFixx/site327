@@ -222,3 +222,10 @@ def require_ready_session(request: Request) -> dict[str, Any]:
     if session.get("setup_required"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Password setup required")
     return session
+
+
+def require_sync_secret(request: Request) -> None:
+    provided = request.headers.get("X-Token-Secret", "")
+    expected = get_settings().token_secret
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid sync token")

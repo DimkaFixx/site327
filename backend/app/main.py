@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from contextlib import suppress
 from pathlib import Path
 
@@ -9,16 +8,16 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.repositories.database import init_db
-from app.routers import admin, auth, docs, forms, health, home, soldiers, uploads
+from app.routers import admin, auth, docs, forms, health, home, soldiers, sync, uploads
 from app.routers.uploads import cleanup_unused_uploads
-from app.services.sheets import has_cached_competencies, has_cached_medals, has_cached_online, has_cached_soldiers, sync_competencies_from_sheet, sync_medals_from_sheet, sync_online_from_sheet, sync_soldiers_from_sheet
+from app.services.sheets import has_cached_competencies, has_cached_medals, has_cached_online, has_cached_soldiers
+from app.services.sync import sync_all_tables
 from app.utils.security import verify_csrf
 
 
 settings = get_settings()
 app = FastAPI(title="327 Star Corp API", version="0.1.0")
 sync_task: asyncio.Task | None = None
-logger = logging.getLogger(__name__)
 TABLE_SYNC_INTERVAL_SECONDS = 5 * 60
 
 uploads_path = Path(settings.uploads_path)
@@ -38,7 +37,7 @@ async def csrf_middleware(request, call_next):
     # Refresh validates Origin in its own handler.  Exempting it here lets
     # sessions created before the CSRF cookie was introduced recover once and
     # receive a fresh CSRF cookie instead of being trapped in an auth loop.
-    csrf_exempt_paths = {"/api/auth/login", "/api/auth/refresh"}
+    csrf_exempt_paths = {"/api/auth/login", "/api/auth/refresh", "/api/system/sync"}
     if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path not in csrf_exempt_paths:
         try:
             verify_csrf(request)
@@ -54,6 +53,7 @@ app.include_router(forms.router)
 app.include_router(docs.router)
 app.include_router(uploads.router)
 app.include_router(admin.router)
+app.include_router(sync.router)
 
 
 @app.on_event("startup")
@@ -62,7 +62,8 @@ async def startup() -> None:
     init_db()
     cleanup_unused_uploads()
     if not has_cached_soldiers() or not has_cached_competencies() or (settings.google_online_sheet_gid.strip() and not has_cached_online()) or (settings.google_medals_sheet_gid.strip() and not has_cached_medals()):
-        await sync_tables()
+        await sync_all_tables()
+        cleanup_unused_uploads()
     sync_task = asyncio.create_task(soldiers_sync_loop())
 
 
@@ -77,22 +78,5 @@ async def shutdown() -> None:
 async def soldiers_sync_loop() -> None:
     while True:
         await asyncio.sleep(TABLE_SYNC_INTERVAL_SECONDS)
-        await sync_tables()
-
-
-async def sync_tables() -> None:
-    successful: list[str] = []
-    for name, sync_job in (
-        ("состав", sync_soldiers_from_sheet),
-        ("компетенции", sync_competencies_from_sheet),
-        ("онлайн", sync_online_from_sheet),
-        ("медали", sync_medals_from_sheet),
-    ):
-        try:
-            result = await sync_job()
-            successful.append(f"{name} — {result} строк")
-        except Exception:
-            logger.exception("Не удалось автоматически обновить лист: %s", name)
-    if successful:
-        logger.info("Таблицы обновлены автоматически: %s", ", ".join(successful))
-    cleanup_unused_uploads()
+        await sync_all_tables()
+        cleanup_unused_uploads()
