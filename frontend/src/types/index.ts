@@ -102,7 +102,6 @@ export type CompetenciesResponse = {
     attestations: CompetencyItem[];
     tech_access: CompetencyItem[];
     medals: MedalItem[];
-    pilot_medals: MedalItem[];
 };
 
 export type FormItem = {

@@ -308,35 +308,31 @@ def _medal_completed(value: str) -> bool:
     return _clean_value(value).casefold() in {"1", "true", "да", "yes", "✓"}
 
 
-def get_medals_for_soldier(soldier: Soldier) -> tuple[list[MedalItem], list[MedalItem]]:
+def get_medals_for_soldier(soldier: Soldier) -> list[MedalItem]:
     rows = fetch_cached_medals_rows()
     marker = _find_medals_header(rows)
     if marker is None:
-        return [], []
+        return []
     header_row, points_column = marker
     header = rows[header_row]
     nickname_column = _find_label_index(header, "Позывной")
     if nickname_column is None:
-        return [], []
+        return []
     total_columns = [index for index in range(points_column + 1, len(header)) if _cell(header, index) == "Σ"]
     if not total_columns:
-        return [], []
+        return []
     general_end = total_columns[0]
-    pilot_end = total_columns[1] if len(total_columns) > 1 else len(header)
     player_row = next((row for row in rows[header_row + 1:] if _cell(row, nickname_column).casefold() == _clean_value(soldier.nickname).casefold()), None)
     if player_row is None:
-        return [], []
-
-    def medals_in_range(start: int, end: int) -> list[MedalItem]:
-        return [
-            MedalItem(title=title, completed=_medal_completed(_cell(player_row, index)))
-            for index in range(start, end)
-            if (title := _cell(header, index)) and title != "Σ"
-        ]
+        return []
 
     # The blank separator after the first Σ is ignored automatically because
-    # it has no title. All named columns up to the next Σ are pilot medals.
-    return medals_in_range(points_column + 1, general_end), medals_in_range(general_end + 1, pilot_end)
+    # it has no title. Named columns up to the first Σ are the general medals.
+    return [
+        MedalItem(title=title, completed=_medal_completed(_cell(player_row, index)))
+        for index in range(points_column + 1, general_end)
+        if (title := _cell(header, index)) and title != "Σ"
+    ]
 
 
 def _find_online_date_marker(rows: list[list[Any]]) -> tuple[int, int] | None:
@@ -507,8 +503,8 @@ async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse
             title = _cell(labels, index)
             if title:
                 tech_access.append(CompetencyItem(title=title, group=current_group, completed=_cell(tech_row, index) == "1"))
-    medals, pilot_medals = get_medals_for_soldier(soldier)
-    return CompetenciesResponse(attestations=attestations, tech_access=tech_access, medals=medals, pilot_medals=pilot_medals)
+    medals = get_medals_for_soldier(soldier)
+    return CompetenciesResponse(attestations=attestations, tech_access=tech_access, medals=medals)
 
 
 def _soldier_from_cache(row: dict[str, Any]) -> Soldier:

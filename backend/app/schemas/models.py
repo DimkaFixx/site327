@@ -88,7 +88,6 @@ class CompetenciesResponse(BaseModel):
     attestations: list[CompetencyItem] = Field(default_factory=list)
     tech_access: list[CompetencyItem] = Field(default_factory=list)
     medals: list[MedalItem] = Field(default_factory=list)
-    pilot_medals: list[MedalItem] = Field(default_factory=list)
 
 
 class LoginRequest(BaseModel):
