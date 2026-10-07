@@ -505,12 +505,15 @@ def get_profile_competencies_for_soldier(soldier: Soldier) -> ProfileCompetencie
                 tech_access.append(CompetencyItem(title=title, group=current_group, completed=_cell(tech_row, index) == "1"))
     return ProfileCompetenciesResponse(attestations=attestations, tech_access=tech_access)
 
+
 async def get_competencies_for_soldier(soldier: Soldier) -> CompetenciesResponse:
+    competencies = get_profile_competencies_for_soldier(soldier)
     medals = get_medals_for_soldier(soldier)
     return CompetenciesResponse(
-        attestations=attestations, 
-        tech_access=tech_access, 
-        medals=medals)
+        attestations=competencies.attestations,
+        tech_access=competencies.tech_access,
+        medals=medals,
+    )
 
 
 def _soldier_from_cache(row: dict[str, Any]) -> Soldier:
