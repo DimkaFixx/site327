@@ -1,4 +1,4 @@
-const CACHE_NAME = "star327-shell-v1";
+const CACHE_NAME = "star327-shell-v2";
 const SHELL_FILES = [
   "/offline.html",
   "/favicon.ico",
