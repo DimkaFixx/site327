@@ -4,9 +4,9 @@ import type { ClipboardEvent, ComponentPropsWithoutRef, Dispatch, ReactNode, Set
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "../api/client";
-import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentItem, EquipmentResponse, FormItem, FormTab, HomePage, ManualRegulation, MarkdownSettings, ProfileCompetenciesResponse, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
+import type { AccessGroup, AccessGroupPayload, AccessRules, AuditEventItem, Audience, CompetenciesResponse, DocItem, DocsSection, EquipmentItem, EquipmentResponse, FormItem, FormTab, HomePage, ManualRegulation, MarkdownSettings, MedalItem, ProfileCompetenciesResponse, RegulationsStore, Session, Soldier, UserAccount, VerificationCodeAdminItem } from "../types";
 
-type View = "me" | "equipment" | "competencies" | "profiles" | "forms" | "docs";
+type View = "me" | "equipment" | "profiles" | "forms" | "docs";
 type FormsAdminSheet = "view" | "create" | "edit";
 type DocsAdminSheet = "view" | "create";
 
@@ -817,26 +817,23 @@ function CompetencySections({ competencies }: { competencies: ProfileCompetencie
   );
 }
 
-function CompetenciesView({ competencies, error }: { competencies: CompetenciesResponse | null; error: string }) {
-  if (!competencies) return <div className="empty">{error || "Загрузка компетенций..."}</div>;
+function MedalChips({ medals }: { medals: MedalItem[] }) {
+  if (medals.length === 0) return <div className="empty">Обычные медали пока не указаны.</div>;
   return (
-    <section className="competencies-view">
-      <div className="document-header">
-        <span>Личный лист</span>
-        <h2>Мои компетенции</h2>
-        <p>Аттестации и допуски, отмеченные за вами в батальонном листе.</p>
-      </div>
-      <CompetencySections competencies={competencies} />
-      <section className="competencies-section medals-section">
-        <h3>Медали</h3>
-        {competencies.medals.length === 0 ? <div className="empty">Обычные медали пока не указаны.</div> : <div className="competency-chips">{competencies.medals.map((medal) => <span className={medal.completed ? "" : "is-pending"} key={medal.title}>{medal.completed ? <BadgeCheck size={15} /> : <X size={15} />}{medal.title}<small>{medal.completed ? "Получена" : "Не получена"}</small></span>)}</div>}
-      </section>
-    </section>
+    <div className="competency-chips">
+      {medals.map((medal) => (
+        <span className={medal.completed ? "" : "is-pending"} key={medal.title}>
+          {medal.completed ? <BadgeCheck size={15} /> : <X size={15} />}
+          {medal.title}
+          <small>{medal.completed ? "Получена" : "Не получена"}</small>
+        </span>
+      ))}
+    </div>
   );
 }
 
 function ProfileCompetenciesDetails({ soldier }: { soldier: Soldier }) {
-  const [competencies, setCompetencies] = useState<ProfileCompetenciesResponse | null>(null);
+  const [competencies, setCompetencies] = useState<CompetenciesResponse | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -856,13 +853,22 @@ function ProfileCompetenciesDetails({ soldier }: { soldier: Soldier }) {
   }, [soldier.nickname]);
 
   return (
-    <details className="profile-competencies">
-      <summary>Компетенции</summary>
-      <div className="profile-competencies-content">
-        {!competencies && <div className={error ? "alert" : "empty"}>{error || "Загрузка компетенций бойца..."}</div>}
-        {competencies && <CompetencySections competencies={competencies} />}
-      </div>
-    </details>
+    <>
+      <details className="profile-competencies">
+        <summary>Компетенции</summary>
+        <div className="profile-competencies-content">
+          {!competencies && <div className={error ? "alert" : "empty"}>{error || "Загрузка компетенций бойца..."}</div>}
+          {competencies && <CompetencySections competencies={competencies} />}
+        </div>
+      </details>
+      <details className="profile-competencies">
+        <summary>Медали</summary>
+        <div className="profile-competencies-content">
+          {!competencies && <div className={error ? "alert" : "empty"}>{error || "Загрузка медалей бойца..."}</div>}
+          {competencies && <MedalChips medals={competencies.medals} />}
+        </div>
+      </details>
+    </>
   );
 }
 
@@ -2538,8 +2544,6 @@ export function App() {
   const [soldiers, setSoldiers] = useState<Soldier[]>([]);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
   const [equipmentError, setEquipmentError] = useState("");
-  const [competencies, setCompetencies] = useState<CompetenciesResponse | null>(null);
-  const [competenciesError, setCompetenciesError] = useState("");
   const [forms, setForms] = useState<FormTab[]>([]);
   const [docs, setDocs] = useState<DocsSection[]>([]);
   const isAdminRoute = route === "#/ghost-admin";
@@ -2646,13 +2650,6 @@ export function App() {
     }).catch((error) => {
       setEquipment(null);
       setEquipmentError(error instanceof Error ? error.message : "Не удалось загрузить регламент снаряжения");
-    });
-    api.competencies().then((result) => {
-      setCompetencies(result);
-      setCompetenciesError("");
-    }).catch((error) => {
-      setCompetencies(null);
-      setCompetenciesError(error instanceof Error ? error.message : "Не удалось загрузить компетенции");
     });
   }, [session, isArchiveRoute, isAdminRoute, isHomeEditRoute, docRouteId, docEditRouteId]);
 
@@ -2762,7 +2759,6 @@ export function App() {
       <nav className="nav desktop-nav">
         <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
         <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
-        <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
         <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
         <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
         <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
@@ -2771,7 +2767,6 @@ export function App() {
         <nav className="mobile-menu" id="archive-mobile-menu" aria-label="Навигация по архиву">
           <button className={view === "me" ? "active" : ""} onClick={() => selectView("me")}><UserRound size={18} /> Мой профиль</button>
           <button className={view === "equipment" ? "active" : ""} onClick={() => selectView("equipment")}><Package size={18} /> Моё снаряжение</button>
-          <button className={view === "competencies" ? "active" : ""} onClick={() => selectView("competencies")}><BadgeCheck size={18} /> Мои компетенции</button>
           <button className={view === "profiles" ? "active" : ""} onClick={() => selectView("profiles")}><UsersRound size={18} /> Профили</button>
           <button className={view === "forms" ? "active" : ""} onClick={() => selectView("forms")}><ClipboardList size={18} /> Формы</button>
           <button className={view === "docs" ? "active" : ""} onClick={() => selectView("docs")}><BookOpenText size={18} /> Документация</button>
@@ -2782,9 +2777,8 @@ export function App() {
         </nav>
       )}
       <div className="mobile-menu-content">
-        {view === "me" && <ProfileCard profile={currentProfile} />}
+        {view === "me" && <ProfileCard profile={currentProfile}><ProfileCompetenciesDetails key={currentProfile.id} soldier={currentProfile} /></ProfileCard>}
         {view === "equipment" && <EquipmentView equipment={equipment} error={equipmentError} />}
-        {view === "competencies" && <CompetenciesView competencies={competencies} error={competenciesError} />}
         {view === "profiles" && <ProfilesView soldiers={soldiers} />}
         {view === "forms" && <FormsView tabs={forms} />}
         {view === "docs" && <DocsView sections={docs} canManageDocs={session.is_docs_manager && !session.is_admin} />}
